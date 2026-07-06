@@ -1,257 +1,343 @@
-# The Agentic Layer — getting OpenCode + Open WebUI close to Claude, on your rig
+# Local AI Stack — CachyOS (3090 Ti) → your whole network
 
-This extends the base `local-ai-stack` from "models on the network" to "agents, skills, and tools."
-It's the answer to *what tooling do OpenCode and Open WebUI need to feel like Claude* — grounded in
-how senior engineers actually run OpenCode (Omer Hamerman / DevOps Toolbox and the broader 2026
-patterns), and scoped hard to what a **24 GB RTX 3090 Ti + i7-12700K + 64 GB** can run.
+A network-wide, self-hosted AI backend built on your existing Ollama install. One box serves
+models and tools; every other machine (chat UI, coding CLI, Obsidian, scripts) points at it.
 
-> **The one idea that shapes everything below:** a coding agent = **model × harness**. Claude ships a
-> huge-context, rock-solid-tool-calling model *and* a great harness. Locally you can't match the model,
-> so the **harness has to carry more weight** — and the harness's job on a 24 GB box is mostly
-> *spending context wisely*, because context (VRAM for KV cache on a small model) is your scarcest
-> resource. Every recommendation here is either "add a capability" or "spend fewer tokens getting it."
+**Your hardware:** i7-12700K · 64 GB RAM · RTX 3090 Ti (24 GB) · 5 TB NVMe · CachyOS
+**Your goal:** call your models + tools from any machine, for Open WebUI, OpenCode, Obsidian
+AI Tagger Universe, and arbitrary tools — with the model lineup free to change over time.
 
----
-
-## 1. What "the workflow" actually is (DevOps Toolbox, distilled)
-
-Omer's setup and the senior-eng consensus in 2026 aren't about one magic model — they're about a
-disciplined loop and a well-built harness around a terminal agent:
-
-- **Plan before build.** Start in a restricted **Plan** agent (no edits), agree the approach, then
-  switch to **Build**. This is the single highest-leverage habit; it stops the agent thrashing.
-- **Delegate to subagents.** Push narrow work (review, tests, research) to **subagents** so the main
-  session's context stays clean. Each subagent has its own model, prompt, and permissions.
-- **Encode conventions once.** An `AGENTS.md` per repo is the agent's onboarding doc. Detailed,
-  repeatable procedures go in **skills** (loaded on demand), not in the always-on prompt.
-- **One-shot the boring stuff.** Custom **/commands** for commit, test, PR-summary, release.
-- **Give it senses.** **MCP servers** and **LSP** so the agent can navigate code semantically, read
-  current library docs, hit git/GitHub, and drive a browser — instead of guessing.
-- **Config is code.** The whole setup lives in dotfiles (`~/.config/opencode/…`) and version control.
-
-OpenCode is the right base for this: MIT-licensed, provider-agnostic (so your model choice is free to
-change), and it has surged past Claude Code in community momentum — which means the skills/plugins/MCP
-ecosystem is where the energy is.
+> **Just want the step-by-step?** Follow **[`INSTRUCTIONS.md`](INSTRUCTIONS.md)** — rig setup +
+> connecting from the MacBook, top to bottom. This README is the reference/reasoning behind it.
 
 ---
 
-## 2. OpenCode's capability map
+## TL;DR — what this sets up
 
-Three layers, plus the plumbing. (Config precedence: project `.opencode/` > global
-`~/.config/opencode/` > org remote. Configs and markdown files both work.)
+- **Ollama stays native** on the host (keeps direct GPU access + your existing tuning), but now
+  listens on the LAN and is tuned for a single 24 GB card.
+- A small **Docker "app tier"** runs alongside it: **LiteLLM** (gateway), **Open WebUI** (chat),
+  **mcpo** (tool bridge), **Postgres** (for LiteLLM keys).
+- **LiteLLM is the key addition** — a single, authenticated, OpenAI-compatible URL with stable
+  *model aliases*. Swap `gemma4` → `gemma5` underneath and nothing downstream changes. This is
+  the piece that makes "the lineup will change over time" a non-event.
+- Everything is reachable at `http://<server>:port`; add **Tailscale** to reach it from anywhere
+  with no open ports.
 
-| Layer | What | Where | Notes for a 24 GB rig |
-|---|---|---|---|
-| **Agents** | Primary (Build, Plan) + subagents (General, Explore, Scout, + custom) | `agents/*.md` or `agent{}` in config | Subagents run in child sessions → **context isolation**. Give each the smallest model + permissions that work. |
-| **Rules** | `AGENTS.md` — project conventions, always in context | repo root / global | Keep it **lean** (< ~150 lines). Reads `CLAUDE.md` too. `/init` drafts one. |
-| **Skills** | `SKILL.md` playbooks, **loaded on demand** | `skills/*/SKILL.md`, also `.claude/skills/`, `.agents/skills/` | The big Claude-parity win — see §3. Progressive disclosure = cheap. |
-| **Commands** | `/name` one-shot prompt templates | `commands/*.md` | Great for commit / test / PR / release. `$ARGUMENTS`, subtask flag. |
-| **Plugins** | TypeScript hooks/tools, from npm or `plugins/` | `plugins/`, `plugin[]` | Extend behavior (e.g. the community skills plugin predated native skills). |
-| **MCP** | External tools (local stdio or remote HTTP) | `mcp{}` in config | **Every server's schemas cost context.** Enable few; gate heavy ones per-agent. |
-| **LSP** | Built-in language-server diagnostics | automatic | Runs on CPU. Pairs with Serena (§4). |
-| **Permissions** | Per-tool allow/ask/deny, glob bash rules | agent + global | `read, edit, bash, task, webfetch, websearch, lsp, skill, …` |
-| **Snapshots** | Auto git-based undo/redo of agent edits | automatic | Disable on huge monorepos if indexing is slow. |
-
-Advanced move that fits your "any machine" theme: run **`opencode serve`** on the rig (headless HTTP
-API, optional mDNS `opencode.local`) and attach the TUI from laptops — avoids MCP cold-boot on every
-run and keeps one warm backend.
+> **Agentic layer (added on):** for the OpenCode + Open WebUI *agents / skills / tools* setup that
+> gets close to Claude — model selection for 24 GB, Serena/Context7, subagents, skills, and the
+> chat-side parity features — see **[`agentic/README.md`](agentic/README.md)**.
 
 ---
 
-## 3. Skills — the closest thing to Claude's Skills, and it's the same format
+## Architecture
 
-OpenCode implements the **Anthropic Agent Skills spec natively**: a skill is a folder with a
-`SKILL.md` (YAML frontmatter: `name`, `description`, + markdown body), optionally bundling
-`scripts/`, `references/`, `assets/`. At session start the agent sees only each skill's **name +
-description**; it loads the full body **only when your request matches** (semantic match, not
-keywords). That lazy loading is exactly why skills are perfect for a small-context local model.
+```mermaid
+flowchart LR
+  subgraph clients["Any machine on your LAN / tailnet"]
+    UI["Browser → Open WebUI"]
+    OC["OpenCode CLI"]
+    OB["Obsidian · AI Tagger Universe"]
+    SC["Scripts / apps (OpenAI SDK)"]
+  end
 
-Three things worth knowing:
-- **It reads `.claude/skills/` and `.agents/skills/`.** So skills are portable across OpenCode, Claude
-  Code, and Codex — and your **Nava Skills Hub** artifacts and the standard docx/pptx/pdf/frontend
-  skills work in OpenCode unchanged. That's a real bridge between your day job and your rig.
-- **Registries exist:** `skills.sh`, `agensi.io/skills`, the `agentskills.io` spec. "Superpowers" is a
-  popular collection/methodology that turns the agent into a disciplined TDD engineer (there's an
-  OpenCode Superpowers plugin mode). Install narrow, repo-relevant skills — not everything.
-- **Gate them per agent** to avoid context bloat: `"tools": { "skills*": false }` globally, then
-  enable specific ones (or enable per built-in agent). See `malhashemi/opencode-skills` for the pattern.
+  subgraph server["CachyOS AI server (3090 Ti)"]
+    subgraph docker["Docker app tier (CPU only)"]
+      LL["LiteLLM gateway :4000\n(aliases · API keys · spend)"]
+      OW["Open WebUI :3000"]
+      MC["mcpo :8000\n(MCP → OpenAPI tools)"]
+      PG[("Postgres")]
+    end
+    OL["Ollama :11434 (native, GPU)\nchat · code:opencode · tag:fast · embed"]
+    GPU["RTX 3090 Ti · 24 GB"]
+  end
 
-An example skill is included at `opencode/skills/pr-summary/SKILL.md` — deliberately shaped around your
-external-contributor PR-review flow.
-
----
-
-## 4. Code-intelligence tools (these matter *more* locally than for Claude)
-
-A local model has a small context budget, so the difference between "grep a word and dump 2,000 lines"
-and "fetch the three symbols that matter" is the difference between a working agent and one that
-truncates your repo mid-task. These tools buy back context:
-
-- **Serena** *(install first — biggest single upgrade).* An MCP server that gives the model
-  **IDE-grade, symbol-level** understanding via LSP: `find_symbol`, `get_symbols_overview`,
-  `find_referencing_symbols`, safe `rename_symbol`. 30+ languages, runs locally (CPU). Instead of
-  reading whole files, the agent asks for exactly the symbol it needs. Config is in `opencode.json`;
-  install via `uvx --from git+…/serena` (⚠️ **not** via MCP marketplaces — they ship stale commands).
-- **Context7** *(you already use it).* Up-to-date library docs on demand, so the model stops
-  hallucinating APIs. Add `use context7` to a prompt. Remote MCP, near-zero local cost.
-- **repomix.** Packs a whole (small) repo into one AI-friendly file with token counts — handy for
-  one-shot "understand this project" prompts or feeding a repo to a chat model. CPU only; `npx repomix`.
-- **Built-in LSP** gives OpenCode live diagnostics; Serena adds the navigation/edit tools on top. Both
-  are CPU.
-
-Rule of thumb: **Serena + Context7 on; everything else off by default**, enabled per-agent when a task
-needs it. The GitHub MCP in particular is a context hog — reach for `gh` in bash or gate it to one agent.
-
----
-
-## 5. Which model — the 24 GB reality (mid-2026)
-
-Your binding constraint isn't the tooling, it's a model that does **agentic tool-calling reliably** in
-24 GB. As of July 2026 the Qwen tool-calling bug that used to plague Ollama has been fixed upstream
-(Unsloth/llama.cpp; works in Ollama, LM Studio, Open WebUI), which removes the old reason to default to
-Devstral. Current picks for 24 GB:
-
-| Model | ~VRAM (Q4) | Role | Why |
-|---|---|---|---|
-| **Qwen3.6 27B** (Apache-2.0) | ~22 GB | **Default driver** | April 2026, "flagship-level coding in a 27B dense model," 256K context, dedicated `qwen3_coder` tool parser. Best all-round Qwen that fits. |
-| **Qwen3.6 35B-A3B** | ~20 GB | Speed / context | MoE (~3B active) → fast + VRAM-lean; holds full 64K on 24 GB with a little offload. |
-| **Devstral Small 24B** (Mistral, Apache-2.0) | ~14 GB | Agentic alternative | Dense, agent-first, very clean multi-file diffs; the conservative pick. ~2× the KV-cache cost of the MoEs, and slower. |
-| **Qwen3-Coder 30B-A3B** | ~19 GB | Dedicated coder (older gen) | The Coder-branded distil; 256K, MoE, ~64% SWE-bench. Tool-calling now fixed — re-pull a current build. |
-| **Gemma 4 31B** (you run it) | ~18 GB | Coding/technical chat | Strong at coding; weaker at long-horizon orchestration/tool-calling. Wired in for your testing. |
-
-Not runnable on 24 GB (need a 2nd GPU): **Qwen3-Coder-Next** (80B/3B, ~71% SWE-bench, but ~48–52 GB at
-Q4 — its 2-bit squeeze onto 24 GB is "a different model" and not worth it), and the frontier open
-leaders (**GLM-5.2, Kimi K2.x, DeepSeek V4**).
-
-Practical tuning (already baked into the base stack + configs):
-- **Tool-calling reliability is model × quant × scaffold.** The Qwen fix only helps on *current* builds
-  — re-pull, and on Ollama use a recent version so it picks up the fixed chat template. Low
-  temperature (0.1) helps everything.
-- **Context vs weights is a zero-sum fight in 24 GB.** OpenCode wants ≥64K; 20–22 GB weights + 64K KV is
-  *tight*. Use `q8_0` KV + flash attention (base stack does this), watch `ollama ps`, and drop to
-  49152/32768 if you see CPU offload. Qwen3.6 is 256K-native; if Ollama serves a short default context,
-  set `OLLAMA_CONTEXT_LENGTH=65536`.
-- **MoE is your friend on 24 GB.** The A3B models (Qwen3.6-35B-A3B, Qwen3-Coder-30B) activate ~3B params
-  → faster and leaner than the dense 27B/Devstral; `--n-cpu-moe` offloads a few expert layers to CPU
-  (you have the RAM) to buy back context.
-- **Don't over-quantize.** For code, prefer higher quant when it fits; Q4 hurts exact-output tasks most.
-
-Honest ceiling: the open-weight leaders that *beat* frontier Claude on some agentic benchmarks
-(GLM-5.2, Kimi K2.x, Qwen3-Coder-Next 80B, DeepSeek V4) **do not fit** in 24 GB. On your rig you're in
-the "very capable for individual-dev workflows, not multi-hour autonomous epics" band — which is
-exactly the band the harness above is designed to maximize.
-
----
-
-## 6. Open WebUI — the chat-side parity layer
-
-Full setup in **`openwebui/SETUP.md`**. The short version of what closes the gap to Claude's app:
-**Native tool calling** + **tools via mcpo** (Serena, fetch, time, sequential-thinking) + **RAG with
-hybrid search** (`nomic-embed-text`) + **custom models** (your version of Projects/GPTs) + a couple of
-**Functions** (an auto-memory filter ≈ Claude memory; a token tracker). All CPU/RAM.
-
----
-
-## 7. Hardware scoping — what runs where
-
-The reassuring part: **only the LLM touches the GPU.** Everything in the harness is CPU/RAM, and your
-i7-12700K + 64 GB eats it for breakfast.
-
-| On the GPU (24 GB — the real budget) | On CPU/RAM (effectively free for you) |
-|---|---|
-| Ollama serving one model (+ its KV cache) | OpenCode, Serena + language servers, repomix |
-| A small helper model *can* co-reside (§ base stack) | LiteLLM, Open WebUI, mcpo, Postgres, Caddy |
-| | All MCP servers (Node/Python), LSP diagnostics |
-
-So the whole agentic layer adds ~nothing to VRAM pressure. Budget the GPU for the model + context;
-spend CPU/RAM freely on tooling.
-
----
-
-## 8. Putting it together — the recommended loop & starter kit
-
-**Loop:** `Plan` (agree approach, read-only) → `Build` with Qwen3.6-27B (edits + bash, `git push` gated)
-→ `@tester` writes/runs tests → `@reviewer` audits the diff → `/commit`. Serena answers "where/what"
-throughout; Context7 answers "how does this library work."
-
-**Starter kit (installed by `scripts/setup-agentic.sh`):**
-- OpenCode + uv + repomix on each client; configs into `~/.config/opencode/`.
-- Agents: tuned Build/Plan + `reviewer` + `tester` subagents.
-- MCP: Serena + Context7 (heavy servers off by default).
-- One command (`/commit`) and one example skill (`pr-summary`) to copy from.
-- Models on the rig: `qwen3.6:27b` (default) + `qwen3.6:35b-a3b`, with `devstral:24b`, `code:opencode`, and `gemma4-code:64k` as switchable alternatives.
-
-Then per repo: `opencode` → `/init` to draft its `AGENTS.md` → drop in `.opencode/skills/` for
-project-specific playbooks (or symlink your Nava skills).
-
----
-
-## 8.5 TDD + compound skill set (installed — the "close to Sonnet" engine)
-
-The single biggest lever for closing the gap to Sonnet on local hardware isn't a bigger model — it's
-**discipline**. Both Superpowers and Every's Compound Engineering are built on that thesis ("the
-problem with AI coding isn't intelligence, it's discipline"). This layer ships a self-contained,
-hardware-tuned blend of the two so you get it **out of the box, no plugins to wire up**.
-
-**What's installed** (auto-triggering skills in `opencode/skills/`, plus agents and commands):
-
-| Phase | Skill (auto-fires) | Command | What it enforces |
-|---|---|---|---|
-| Design | `brainstorming` | `/brainstorm` | Socratic Q&A → saved design doc. No code until approved. |
-| Plan | `writing-plans` | `/plan` | Small, test-first tasks with exact paths (80% of the value is here). |
-| Build | `test-driven-development` + `executing-plans` | `/implement` | **RED-GREEN-REFACTOR Iron Law**; inline two-pass self-review; commit per green task. |
-| Review | `requesting-code-review` (→ `@reviewer`) | `/review` | One multi-lens pass (correctness/security/perf/arch/simplicity). |
-| Compound | `compounding-learnings` | `/compound` | Write durable lessons into AGENTS.md / skills / `docs/lessons.md`. |
-| Finish | `finishing-a-branch` | `/ship` | Full-suite verify, summary, commit/PR prep (no push without your go). |
-| Always-on | `verification-before-done`, `systematic-debugging` | `/commit`, (`@debugger`) | Evidence over claims; root-cause not symptom. |
-
-Because skills load on their **description** (progressive disclosure), you don't run any of this
-manually — just describe the feature and the workflow fires. The commands are shortcuts when you want
-to force a phase. Small, well-specified fixes skip straight to TDD.
-
-**The key local adaptation.** Compound Engineering's signature `/review` **spawns 14+ specialist
-agents in parallel** (security-sentinel, performance-oracle, architecture-strategist, …). On one
-3090 Ti with a single loaded model that isn't parallel — it's 14 *sequential* model calls, slow and
-context-heavy. So the review here is **collapsed into one structured multi-lens pass** (or 2–3
-sequential focused passes for high-stakes changes), and execution uses **inline self-review** rather
-than a fresh subagent per task. Same methodology, sized for your GPU. The **compound flywheel** is kept
-intact — it's cheap (just writing notes) and it's what actually makes the system improve over time.
-
-**Gemma 4 is wired in for your testing.** The config includes `gemma4:31b-it-qat` (chat/plan) and a
-`gemma4-code:64k` variant built for Build mode, alongside the Qwen/Devstral roster. The default is now
-Qwen3.6-27B (the Qwen tool-call bug is fixed, so there's no longer a reliability reason to prefer
-Devstral), but switching Gemma 4 in is one step: `Ctrl+A` / `/models` in the TUI, or set
-`"model": "ollama/gemma4-code:64k"` in `opencode.json`. A/B it against Qwen3.6 and Devstral
-on your own repos and keep whatever wins.
-
-**Want the real upstream instead?** Both support OpenCode natively — Superpowers via its bundled CLI,
-Compound via `bunx @every-env/compound-plugin install compound-engineering --to opencode`. They're
-maintained and battle-tested, but tuned for frontier models and cloud-scale parallel agents (Compound
-can fan out 14–80 sub-agents). On your rig they'll serialize and run slowly. Reasonable path: run this
-local set as your daily driver; if you later add a second GPU or lean on cloud fallback via LiteLLM,
-layer the upstream plugins on top.
-
-## 9. Install
-
-```bash
-cd local-ai-stack/agentic
-chmod +x scripts/setup-agentic.sh
-./scripts/setup-agentic.sh          # installs client tooling + configs; pulls models if run on the rig
-
-# then, once per machine, edit the host in the config:
-$EDITOR ~/.config/opencode/opencode.json     # cachybox.local -> your rig's IP / Tailscale name
-
-# Open WebUI extras (chat-side parity): follow openwebui/SETUP.md
-# Expanded shared tool host: docker/mcpo-config.json  (replaces the base stack's, then: docker compose restart mcpo)
+  UI --> OW
+  OC -->|"/v1"| OL
+  OB -->|"/v1"| OL
+  SC -->|"/v1 + key"| LL
+  OW --> OL
+  OW -.tools.-> MC
+  LL --> OL
+  LL --- PG
+  OL --- GPU
 ```
 
-## 10. What still won't match Claude (be honest with yourself)
-- **Long-horizon autonomy.** Multi-hour, many-hundred-tool-call runs need the big models you can't fit.
-  Keep tasks scoped; lean on Plan mode.
-- **Tool-calling polish.** Even the best 24 GB models occasionally fumble a call where Claude wouldn't. The
-  `reviewer`/`tester` gates and LiteLLM fallbacks are there to catch it.
-- **Raw reasoning on gnarly bugs.** A 24 GB model will sometimes need you to point it at the answer —
-  which is exactly why Serena (precise context) and a lean AGENTS.md (clear rules) matter so much.
+Two front doors on purpose:
+- **Direct to Ollama (`:11434/v1`)** — simplest; best for OpenCode (isolates tool-calling to the
+  model itself) and Obsidian.
+- **Through LiteLLM (`:4000/v1`)** — for anything that benefits from a stable alias, an API key,
+  or that you might later point at a cloud model. Open WebUI uses Ollama directly *and* can add
+  LiteLLM as a second connection.
 
-For the things you *can* do — daily feature work, refactors, tests, reviews, PR prep, docs, all
-private and offline — this setup gets genuinely close.
+---
+
+## Part 1 — The toolstack
+
+| Layer | Tool | Runs as | Port | Why it's here |
+|---|---|---|---|---|
+| Inference | **Ollama** | native systemd | 11434 | You already run it; native = direct GPU + your tuning. |
+| **Gateway** | **LiteLLM** | Docker | 4000 | One OpenAI-compatible URL, stable model aliases, per-tool API keys, spend/rate limits, future cloud models. The future-proofing layer. |
+| Chat UI | **Open WebUI** | Docker | 3000 | Best-in-class Ollama frontend: multi-model chat, RAG, web search, tools, users. |
+| Tool bridge | **mcpo** | Docker | 8000 | Turns stdio MCP servers into OpenAPI so Open WebUI (and any HTTP client) can call them. Central place to host tools. |
+| Key store | **Postgres** | Docker | (internal) | Backs LiteLLM virtual keys + spend. |
+| Access | **Tailscale** *(opt.)* | native | — | Reach everything from outside the house, no port-forwarding. |
+| TLS/naming | **Caddy** *(opt.)* | Docker | 80/443 | Friendly `https://chat.home` URLs. |
+
+**Models** (managed once on the server, via `03-model-variants.sh`):
+
+| Handle | Built from | For | Notes |
+|---|---|---|---|
+| `chat` (gemma4:31b-it-qat) | your existing | general chat | ~18 GB |
+| `chat-creative` (deckard-heretic) | your existing | creative/uncensored | ~21 GB |
+| `code:opencode` | qwen3-coder:30b | OpenCode | **64k ctx**, temp 0.1 for tool reliability |
+| `tag:fast` | llama3.2:3b | Obsidian tagging, titles | 8k ctx, temp 0, tiny — coexists with a big model |
+| `nomic-embed-text` | pulled | RAG, semantic search | embeddings |
+
+---
+
+## Part 2 — The plan (decisions & constraints)
+
+**Addressing.** Give the server a **DHCP reservation** on your router so its IP never changes, and
+use its **mDNS name** (`<hostname>.local`, works out of the box with systemd-resolved/avahi) in all
+client configs. Then a laptop uses `http://cachybox.local:11434/v1` regardless of DHCP churn.
+
+**Security.** Ollama's API has **no authentication** and exposes management endpoints (including
+*delete model*). So:
+1. Firewall the AI ports to your **LAN subnet only** (`02-firewall.sh`). Never port-forward them.
+2. Put **LiteLLM in front** for anything that should require a key; mint a separate virtual key per
+   tool/person so you can revoke one without touching the rest.
+3. For off-LAN access, use **Tailscale** — encrypted, no exposed ports.
+
+**The 24 GB VRAM reality.** Two 18 GB models **cannot** be resident at once. The config sets
+`OLLAMA_MAX_LOADED_MODELS=2` so a *small* helper (`tag:fast`, ~3 GB) can sit alongside *one* big
+model; requesting a second big model **evicts** the first (a few seconds to reload from your fast
+NVMe). `OLLAMA_NUM_PARALLEL=1` keeps KV-cache small. This is the right trade for a mostly-single-user
+homelab; raise the numbers only if you add headroom.
+
+**Context length.** OpenCode needs **≥64k context**. Rather than a global setting that wastes VRAM on
+every model, context is **baked per model**: `code:opencode` is 64k, `tag:fast` is 8k, chat stays
+default. Watch out: 18 GB weights + 64k KV is *tight* on 24 GB even with flash-attention + q8 KV.
+After first use, run `ollama ps` — if it shows any CPU/RAM offload, rebuild `code:opencode` with
+`num_ctx 49152` or `32768` (edit `03-model-variants.sh`). You already know this dance.
+
+**Tool-calling reliability.** Qwen3-Coder's malformed-tool-call issue is model-side, not transport.
+Mitigations baked in: low temperature on the coding variant, and a `"tools": true/false` flag
+**per model** in the OpenCode config so you can disable tools on a model that misbehaves. Keep
+Devstral 24B as the fallback (commented in the model + LiteLLM configs).
+
+---
+
+## Part 3 — Implementation
+
+Everything is scripted. Get the folder onto the CachyOS box, then:
+
+```bash
+cd local-ai-stack
+chmod +x scripts/*.sh
+
+# 0) Sanity check — makes no changes, prints your server IP/hostname
+./scripts/00-preflight.sh
+
+# If Docker isn't installed yet (CachyOS):
+#   sudo pacman -S docker docker-compose
+#   sudo systemctl enable --now docker
+#   sudo usermod -aG docker $USER   # then log out/in
+
+# 1) Expose + tune Ollama (writes a systemd drop-in, restarts the service)
+./scripts/01-ollama-tune.sh
+
+# 2) Firewall to your LAN  — EDIT LAN_SUBNET at the top of the file first!
+$EDITOR scripts/02-firewall.sh
+./scripts/02-firewall.sh
+
+# 3) Build the purpose-tuned models (pulls a few GB)
+./scripts/03-model-variants.sh
+
+# 4) Configure + launch the Docker app tier
+cp docker/.env.example docker/.env
+#   generate 4 secrets and paste them in:
+for i in 1 2 3 4; do openssl rand -hex 32; done
+$EDITOR docker/.env
+cd docker && docker compose up -d && cd ..
+
+# 5) Verify
+AI_HOST=cachybox.local ./scripts/healthcheck.sh
+```
+
+Or run `./scripts/bootstrap.sh` to chain steps 0–4 with prompts.
+
+**First-run setup in the UIs:**
+- **Open WebUI** (`http://<server>:3000`): the *first account you create becomes admin*. Do it
+  immediately. Your Ollama models appear automatically in the model picker.
+- **LiteLLM UI** (`http://<server>:4000/ui`): log in as `admin` with your `LITELLM_MASTER_KEY`.
+  Mint a virtual key per client under *Virtual Keys* (scope it to specific model aliases if you like).
+
+---
+
+## Client setup (any machine)
+
+**OpenCode** — copy `clients/opencode.json` to `~/.config/opencode/opencode.json`, change
+`cachybox.local` to your server. Then `opencode`, `/models`, pick `code:opencode`. (First request
+after an idle period reloads the model — normal.)
+
+**Obsidian · AI Tagger Universe** — install from Community Plugins →
+*Settings → AI Tagger Universe → LLM Settings*:
+- Provider: **Local LLM (Ollama)**
+- Endpoint: `http://cachybox.local:11434/v1`
+- Model: `tag:fast`
+- Temperature: `0`, tag format: **YAML Frontmatter**, then *Test connection*.
+- (Bonus: **Smart Connections** for semantic search — point its embedding model at
+  `nomic-embed-text` on the same endpoint.)
+
+**Any script / app** — it's just the OpenAI SDK:
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://cachybox.local:4000/v1",  # LiteLLM
+                api_key="sk-your-virtual-key")
+print(client.chat.completions.create(
+    model="chat",                                          # a LiteLLM alias
+    messages=[{"role":"user","content":"hello"}]).choices[0].message.content)
+```
+
+**Hosting tools centrally** — add MCP servers to `docker/mcpo-config.json`, `docker compose
+restart mcpo`, then in Open WebUI: *Admin → Settings → External Tools → +* → Type **OpenAPI**,
+URL `http://mcpo:8000/<toolname>`. (Open WebUI ≥0.6.31 can also add native **MCP/Streamable-HTTP**
+servers directly — use that for HTTP MCPs like Context7; use mcpo for stdio ones.)
+
+---
+
+## Add-on: HTTPS for Open WebUI
+
+Open WebUI only needs HTTPS for browser secure-context features (mic input, clipboard, PWA install);
+the APIs are already encrypted by WireGuard over Tailscale, so HTTPS on them is optional. You have
+three ways to handle it — pick one.
+
+### Option A — You already run a reverse proxy (e.g. Caddy on your NAS) ✅ recommended if you have one
+Leave the **bundled Caddy off** (it's profiled out, so `docker compose up -d` already skips it) and
+point your existing proxy at the rig's plain-HTTP Open WebUI on `:3000`. On your NAS Caddyfile:
+
+```caddy
+ai.tabaska.us {
+    reverse_proxy <rig-lan-ip>:3000
+}
+```
+
+Caddy handles Open WebUI's WebSocket upgrade automatically, and your NAS already owns the
+`*.tabaska.us` cert. Then set the advertised URL so login redirects/absolute links are correct — in
+`docker/.env`:
+
+```
+WEBUI_URL=https://ai.tabaska.us
+```
+
+Note on **remote access**: if that hostname resolves to a LAN IP (split-horizon DNS), it won't be
+reachable from your work MacBook unless the name is also served over Tailscale. For off-LAN browser
+access either use Option B (the `.ts.net` name, reachable anywhere on the tailnet) or just hit
+`http://cachybox:3000` over Tailscale (Option C).
+
+### Option B — Let the bundled Caddy own HTTPS via your tailnet
+The rig fetches a trusted cert for its `*.ts.net` name from the local Tailscale daemon (auto-renews),
+and the same `https://` URL works from anywhere on the tailnet — no port-forwarding, no warnings.
+
+**One-time prerequisites**
+1. Tailscale admin console → **DNS** → enable **MagicDNS** and **Enable HTTPS Certificates**.
+   (Being connected to Tailscale is not the same as having HTTPS issuance turned on.)
+2. `tailscale status` on the box → note its MagicDNS name (e.g. `cachybox.tailnet-abcd.ts.net`).
+   Put it in `docker/.env` as `TS_HOSTNAME`.
+
+**Enable it** (note the `--profile caddy` — the service is opt-in):
+```bash
+# TS_HOSTNAME must be set in docker/.env first
+cd docker && docker compose --profile caddy up -d
+```
+The Compose service already mounts the host's `tailscaled` socket
+(`/var/run/tailscale/tailscaled.sock`) so Caddy can request certs; Caddy runs as root in the
+container, so no extra permission setup is needed. Then browse to **`https://<your-host>.ts.net`**
+— you'll land on Open WebUI over HTTPS. Once you've confirmed it, you can delete the `3000:8080`
+line from the `open-webui` service so Caddy becomes the only entrypoint for the UI.
+
+### Option C — Skip HTTPS entirely, use plain HTTP over Tailscale
+Tailscale already encrypts everything, so `http://cachybox:3000` from any tailnet device is perfectly
+secure on the wire. The only thing you lose is browser secure-context features (mic, clipboard, PWA).
+Least moving parts: leave Caddy off, don't set `WEBUI_URL`, and just browse to the `:3000` port.
+
+**Details & knobs** for Option B live in `docker/Caddyfile`:
+- Uncomment the optional per-service blocks to also expose LiteLLM / mcpo / Ollama over HTTPS on
+  distinct ports (`:8443`, `:8444`, `:8445`) — and uncomment the matching ports in the caddy
+  service. If a port-suffixed block fails to get a cert on your tailnet, just use the plain-HTTP
+  ports over Tailscale instead.
+- A commented `*.home` / `tls internal` block is included for LAN clients that aren't on Tailscale
+  (they'd trust Caddy's local CA once).
+
+*Non-root Caddy note:* if you ever run Caddy as a non-root user, grant its UID cert access by
+adding `Environment=TS_PERMIT_CERT_UID=<uid>` to a `tailscaled` systemd drop-in
+(`sudo systemctl edit tailscaled`) and `sudo systemctl restart tailscaled`.
+
+---
+
+## Part 4 — What you might be missing
+
+1. **A gateway (LiteLLM) — the biggest gap.** Without it, every tool hardcodes a model name and a
+   raw, unauthenticated Ollama URL. With it you get stable aliases, revocable per-tool keys, spend
+   visibility, automatic fallbacks, and a clean path to mixing in cloud models later — all on one
+   URL. Highest-leverage addition for your stated goals.
+2. **Tailscale is already handling remote access** — good. The main thing to add on top is the
+   Caddy + Tailscale HTTPS layer above, so browser features and clean URLs work over the tailnet.
+   Worth double-checking: **HTTPS Certificates** is enabled in the admin console (separate from
+   just being connected), and ACLs allow the client devices to reach this node's ports.
+3. **Backups.** Your value is in Open WebUI (chats, users, RAG docs) and LiteLLM (keys, spend) —
+   both in Docker named volumes. Snapshot them: `docker run --rm -v open_webui_data:/d -v
+   $PWD:/b alpine tar czf /b/openwebui-$(date +%F).tgz -C /d .` (repeat for `litellm_pgdata`).
+   Model weights re-pull, so they don't need backup.
+4. **Auto-start ordering.** Ollama is a systemd service; the Docker stack uses
+   `restart: unless-stopped`, so both survive reboots. If the app tier ever races ahead of Ollama
+   on boot, the containers just retry — fine in practice.
+5. **Observability.** `healthcheck.sh` + `ollama ps` + `nvidia-smi` cover 95%. If you want graphs,
+   LiteLLM exposes Prometheus metrics and there's an admin dashboard in Open WebUI; add
+   `nvtop` (`sudo pacman -S nvtop`) for a live GPU view.
+6. **Keep OpenCode fully local.** By default it calls a *hosted* small model for session titles.
+   The provided config sets `small_model` to a local one so nothing leaves your box.
+7. **TLS / friendly names (optional).** Uncomment the Caddy service + add a `Caddyfile` to get
+   `https://chat.home`, `https://llm.home` instead of ports. Nice-to-have, not required on a LAN.
+8. **A "golden" second coding model.** You've been bitten by tool-call bugs; having Devstral 24B
+   pre-pulled and wired as a LiteLLM fallback means a flaky model degrades gracefully instead of
+   blocking you.
+
+---
+
+## Operations cheat-sheet
+
+```bash
+# Update the app tier
+cd docker && docker compose pull && docker compose up -d
+
+# See what's loaded on the GPU right now
+ollama ps
+
+# Swap the model behind an alias (no client changes needed):
+#   edit docker/litellm-config.yaml  →  docker compose restart litellm
+
+# Add a new model everywhere:
+ollama pull <model>           # then reference it in litellm-config.yaml / opencode.json
+
+# Logs
+docker compose -f docker/docker-compose.yml logs -f litellm open-webui mcpo
+journalctl -u ollama -f
+```
+
+---
+
+## Handoff note (if you point Claude Code at this)
+
+This folder is self-contained. A Claude Code session running **on the CachyOS box** can execute it:
+1. Run `scripts/00-preflight.sh`; install Docker if missing.
+2. Ask me for the LAN subnet, then edit `scripts/02-firewall.sh`.
+3. Run `01`→`02`→`03`.
+4. `cp docker/.env.example docker/.env`, generate secrets with `openssl rand -hex 32`, fill them in.
+5. `cd docker && docker compose up -d`, then `scripts/healthcheck.sh`.
+The scripts are idempotent; anything requiring a human decision (subnet, secrets, admin account) is
+called out above.
+
+> These scripts touch systemd, your firewall, and pull GB-scale models. Skim each before running —
+> nothing here should be executed blind, on your box or by an agent.

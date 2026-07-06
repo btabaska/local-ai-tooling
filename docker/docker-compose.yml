@@ -67,8 +67,10 @@ services:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       # Stable secret so saved tool/OAuth creds survive restarts:
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
-      # External URL (used for absolute links, PWA, OAuth redirects). Matches your Tailscale name.
-      WEBUI_URL: https://${TS_HOSTNAME}
+      # External URL Open WebUI advertises (absolute links, login redirects, PWA). Set WEBUI_URL in
+      # .env to whatever hostname you actually reach it on (your NAS domain, the TS name, or
+      # http://<rig>:3000). Falls back to https://${TS_HOSTNAME} if WEBUI_URL is unset.
+      WEBUI_URL: ${WEBUI_URL:-https://${TS_HOSTNAME}}
       # Faster inference for models that support it:
       OLLAMA_FLASH_ATTENTION: "1"
       # New signups require admin approval (first account created becomes admin):
@@ -97,6 +99,11 @@ services:
     image: caddy:2-alpine
     container_name: caddy
     restart: unless-stopped
+    # OPT-IN ONLY: skipped by `docker compose up -d`. Start with `docker compose --profile caddy up -d`
+    # if you want THIS box to own HTTPS via your Tailscale tailnet. If you already run a reverse
+    # proxy (e.g. Caddy on your NAS), leave this off and point that proxy at <rig-ip>:3000 —
+    # then set WEBUI_URL in .env to the hostname you front it with. See README + INSTRUCTIONS.md.
+    profiles: ["caddy"]
     ports:
       - "80:80"
       - "443:443"

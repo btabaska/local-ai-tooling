@@ -24,7 +24,9 @@ if [[ ! -f docker/.env ]]; then
   echo "Generate secrets with: openssl rand -hex 32"
   exit 1
 fi
-( cd docker && docker compose up -d )
+( cd docker && docker compose up -d )   # bundled Caddy is OFF by default (it's profiled out)
+echo "   HTTPS on this box is opt-in: 'cd docker && docker compose --profile caddy up -d'."
+echo "   Using your own reverse proxy instead? Leave Caddy off; point it at this host:3000."
 
 echo
 echo "### Done. Running healthcheck…"

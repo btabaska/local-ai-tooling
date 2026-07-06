@@ -1,0 +1,63 @@
+# ── docker/litellm-config.yaml ───────────────────────────────────────────────
+# LiteLLM = your single, stable, authenticated front door to Ollama.
+#
+# The whole point: `model_name` is the PUBLIC name every tool/script uses. The
+# `litellm_params.model` underneath can change whenever you swap models — clients never
+# have to be reconfigured. Add cloud models here later (Claude, GPT, etc.) and they show up
+# on the same endpoint with the same auth. This directly serves your "this will change over
+# time" requirement.
+#
+# `ollama_chat/<name>` (not `ollama/`) routes to Ollama's /api/chat — LiteLLM recommends it
+# for better multi-turn + tool-calling behavior.
+# api_base uses host.docker.internal so the container reaches Ollama running natively on the host.
+
+model_list:
+  # ---- General chat (default) ----
+  - model_name: chat
+    litellm_params:
+      model: ollama_chat/gemma4:31b-it-qat
+      api_base: http://host.docker.internal:11434
+
+  # ---- Creative / uncensored chat ----
+  - model_name: chat-creative
+    litellm_params:
+      model: ollama_chat/deckard-heretic:128k
+      api_base: http://host.docker.internal:11434
+
+  # ---- Coding / agentic (64k ctx variant built by 03-model-variants.sh) ----
+  - model_name: code
+    litellm_params:
+      model: ollama_chat/code:opencode
+      api_base: http://host.docker.internal:11434
+
+  # ---- Fast utility: tagging, titles, classification ----
+  - model_name: utility
+    litellm_params:
+      model: ollama_chat/tag:fast
+      api_base: http://host.docker.internal:11434
+
+  # ---- Embeddings (RAG, semantic search) ----
+  - model_name: embed
+    litellm_params:
+      model: ollama/nomic-embed-text
+      api_base: http://host.docker.internal:11434
+
+  # ---- OPTIONAL reliable coding fallback (uncomment after: ollama pull devstral:24b) ----
+  # - model_name: code-fallback
+  #   litellm_params:
+  #     model: ollama_chat/devstral:24b
+  #     api_base: http://host.docker.internal:11434
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@litellm-db:5432/${POSTGRES_DB}"
+
+litellm_settings:
+  drop_params: true          # silently drop provider-unsupported params instead of erroring
+  # request_timeout: 600     # local big models can be slow on first token; raise if needed
+
+router_settings:
+  routing_strategy: simple-shuffle
+  # If `code` ever fails (e.g. a bad tool-call), fall back automatically:
+  # fallbacks: [{"code": ["code-fallback"]}]
+  num_retries: 2

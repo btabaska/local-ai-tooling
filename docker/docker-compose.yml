@@ -1,0 +1,124 @@
+# ── docker/docker-compose.yml ────────────────────────────────────────────────
+# The "app tier". Ollama stays NATIVE on the host (keeps direct GPU access + your existing
+# tuning); everything here is CPU-only and talks to Ollama via host.docker.internal.
+#
+#   Bring up:   docker compose up -d
+#   Logs:       docker compose logs -f
+#   Update:     docker compose pull && docker compose up -d
+#   Stop:       docker compose down          (data persists in named volumes)
+#
+# Endpoints after startup (replace host with your AI_HOST / server IP):
+#   Open WebUI     http://AI_HOST:3000
+#   LiteLLM API    http://AI_HOST:4000            (OpenAI-compatible)
+#   LiteLLM UI     http://AI_HOST:4000/ui         (login: admin / your master key)
+#   mcpo tools     http://AI_HOST:8000/docs
+
+services:
+  # ---- Postgres: backs LiteLLM virtual keys + spend tracking (not exposed to LAN) ----
+  litellm-db:
+    image: postgres:16-alpine
+    container_name: litellm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - litellm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---- LiteLLM: unified OpenAI-compatible gateway + auth + aliases ----
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm
+    restart: unless-stopped
+    depends_on:
+      litellm-db:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets the container reach host's native Ollama
+
+  # ---- Open WebUI: the chat interface ----
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      # Direct HTTP access. Once Caddy is up you can REMOVE this line to make Caddy (HTTPS)
+      # the only way in — the container still talks to Caddy over the internal docker network.
+      - "3000:8080"
+    environment:
+      # Native Ollama connection (gives you the model-pull UI + first-class Ollama features):
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      # Stable secret so saved tool/OAuth creds survive restarts:
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      # External URL (used for absolute links, PWA, OAuth redirects). Matches your Tailscale name.
+      WEBUI_URL: https://${TS_HOSTNAME}
+      # Faster inference for models that support it:
+      OLLAMA_FLASH_ATTENTION: "1"
+      # New signups require admin approval (first account created becomes admin):
+      DEFAULT_USER_ROLE: pending
+    volumes:
+      - open_webui_data:/app/backend/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ---- mcpo: bridges stdio MCP tool servers to OpenAPI so Open WebUI can use them ----
+  mcpo:
+    image: ghcr.io/open-webui/mcpo:main
+    container_name: mcpo
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mcpo-config.json:/app/config/config.json:ro
+    command: ["--host", "0.0.0.0", "--port", "8000", "--config", "/app/config/config.json"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ---- Caddy: reverse proxy with trusted HTTPS from your Tailscale tailnet ----
+  # Serves Open WebUI at https://${TS_HOSTNAME}. See docker/Caddyfile for prerequisites.
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # Uncomment alongside the matching optional blocks in the Caddyfile:
+      # - "8443:8443"   # litellm over https
+      # - "8444:8444"   # mcpo over https
+      # - "8445:8445"   # ollama over https
+    environment:
+      TS_HOSTNAME: ${TS_HOSTNAME}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      # Lets Caddy fetch *.ts.net certificates from the host's Tailscale daemon:
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # only needed if you proxy Ollama via Caddy
+    depends_on:
+      - open-webui
+
+volumes:
+  litellm_pgdata:
+  open_webui_data:
+  caddy_data:
+  caddy_config:

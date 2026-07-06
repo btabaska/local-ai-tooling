@@ -1,0 +1,28 @@
+{
+  "//": "docker/mcpo-config.json — MCP tool servers hosted centrally on the AI box.",
+  "//2": "Claude Desktop config format. Each server is exposed at its own subpath, e.g.",
+  "//3": "http://AI_HOST:8000/time , http://AI_HOST:8000/fetch . Browse all at :8000/docs.",
+  "//4": "Add these to Open WebUI: Admin Panel -> Settings -> External Tools -> + ->",
+  "//5": "Type=OpenAPI, URL=http://mcpo:8000/<name> (same docker net) or http://host.docker.internal:8000/<name>.",
+  "mcpServers": {
+    "time": {
+      "command": "uvx",
+      "args": ["mcp-server-time", "--local-timezone=America/New_York"]
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    },
+    "//context7": "Your existing Context7 server (from your OpenCode setup) — HTTP transport example:",
+    "context7": {
+      "type": "streamable-http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+    ,
+    "//git": "Example stdio server exposing a local repo. Point args at a path the mcpo container can see (mount it in compose first).",
+    "//gitexample": {
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "/repos/simpler-grants-gov"]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+# secrets — never commit real env files
+docker/.env
+**/.env
+*.key
+*.pem
+
+# python / node cruft
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# local scratch
+/tmp/
+*.log

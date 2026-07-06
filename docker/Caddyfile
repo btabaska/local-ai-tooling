@@ -1,0 +1,67 @@
+# ── docker/Caddyfile ─────────────────────────────────────────────────────────
+# Trusted HTTPS for your stack using certificates issued by your OWN Tailscale tailnet.
+# No Let's Encrypt, no DNS challenges, no self-signed warnings, nothing exposed to the internet.
+#
+# HOW IT WORKS
+#   Caddy 2.5+ detects any site address ending in .ts.net and fetches the TLS certificate at
+#   handshake time from the local tailscaled (via the socket mounted in docker-compose.yml).
+#   Certs auto-renew. The SAME url works on your LAN and remotely — anywhere the client is on
+#   Tailscale — because MagicDNS resolves the name to the tailnet IP either way.
+#
+# PREREQUISITES (once)
+#   1. Admin console → DNS → enable MagicDNS AND "Enable HTTPS Certificates".
+#      (Your rig being on Tailscale is NOT enough — cert issuance is a separate toggle.)
+#   2. Get this box's MagicDNS name:   tailscale status        # e.g. cachybox.tailnet-abcd.ts.net
+#      Put it in docker/.env as TS_HOSTNAME.
+#   3. The compose file mounts the tailscaled socket and Caddy runs as root in the container,
+#      so no extra permission setup is needed. (If you switch Caddy to non-root, grant its UID
+#      access via TS_PERMIT_CERT_UID on the host — see README.)
+
+# ── Main entrypoint: Open WebUI over trusted HTTPS ─────────────────────────────
+# → https://<your-host>.ts.net
+{$TS_HOSTNAME} {
+	encode zstd gzip
+	reverse_proxy open-webui:8080
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OPTIONAL — put the APIs behind HTTPS too, on the same hostname, different ports.
+# Uncomment the blocks you want, and uncomment the matching published ports in
+# docker-compose.yml (caddy service).
+#
+# NOTE: Traffic over Tailscale is ALREADY encrypted (WireGuard). Plain-HTTP access to these
+# services on their normal ports (:4000, :8000, :11434) is perfectly safe over the tailnet.
+# Only do this if a specific client insists on an https:// URL (e.g. a browser secure-context
+# feature). If Caddy fails to get a cert for a port-suffixed block on your tailnet, just drop
+# back to the plain-HTTP ports — no loss of security.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# LiteLLM gateway  →  https://<host>.ts.net:8443/v1
+# {$TS_HOSTNAME}:8443 {
+# 	reverse_proxy litellm:4000
+# }
+
+# mcpo tools  →  https://<host>.ts.net:8444/docs
+# {$TS_HOSTNAME}:8444 {
+# 	reverse_proxy mcpo:8000
+# }
+
+# Ollama (native on host)  →  https://<host>.ts.net:8445/v1
+# {$TS_HOSTNAME}:8445 {
+# 	reverse_proxy host.docker.internal:11434
+# }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ALTERNATIVE — LAN-only friendly names for clients that are NOT on Tailscale.
+# Uses Caddy's built-in local CA; clients must trust Caddy's root cert once
+# (`docker exec caddy caddy trust`, or import /data/caddy/pki/authorities/local/root.crt).
+# Point a .home name at the server IP via your router DNS / Pi-hole / hosts file.
+# ═══════════════════════════════════════════════════════════════════════════════
+# chat.home {
+# 	tls internal
+# 	reverse_proxy open-webui:8080
+# }
+# llm.home {
+# 	tls internal
+# 	reverse_proxy litellm:4000
+# }

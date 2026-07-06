@@ -36,7 +36,7 @@ $EDITOR scripts/02-firewall.sh       # set LAN_SUBNET to your real network (defa
 
 ```bash
 ./scripts/bootstrap.sh               # tunes+exposes Ollama, applies firewall, builds model variants,
-                                     # starts Docker services. Bundled Caddy is OFF by default.
+                                     # starts Docker services (no Caddy on the rig).
 ```
 
 ### 4. Install the agent layer + pull models
@@ -47,22 +47,29 @@ cd agentic && ./scripts/setup-agentic.sh && cd ..
 # installs OpenCode configs to ~/.config/opencode/ so you can also run OpenCode ON the rig.
 ```
 
-### 5. HTTPS for Open WebUI — pick ONE (see README "Add-on: HTTPS for Open WebUI")
+### 5. HTTPS via your existing reverse proxy (recommended)
 
-- **You already run a reverse proxy (your NAS Caddy):** do nothing extra here. The bundled Caddy is
-  profiled out, so it never starts. Add a block to your **NAS** Caddyfile:
-  ```caddy
-  ai.tabaska.us {
-      reverse_proxy <rig-lan-ip>:3000
-  }
-  ```
-  and set `WEBUI_URL=https://ai.tabaska.us` in `docker/.env`, then `cd docker && docker compose up -d`
-  to apply. (For off-LAN access this name must also resolve over Tailscale — otherwise use one of the
-  next two options from work.)
-- **Let this box own HTTPS on your tailnet:** set `TS_HOSTNAME` in `.env`, enable MagicDNS + HTTPS
-  Certificates in the Tailscale admin console, then `cd docker && docker compose --profile caddy up -d`.
-- **No HTTPS, just Tailscale:** do nothing — browse `http://<rig>:3000` over Tailscale (encrypted on
-  the wire; you only lose browser mic/clipboard/PWA features).
+The rig serves plain HTTP on the LAN (`:3000`, `:4000`, `:8000`, `:11434`). Terminate TLS on a
+**separate** always-on box (e.g. Mac mini Caddy) — do **not** run Caddy on the rig.
+
+Add blocks on your reverse proxy pointing at the rig's LAN IP, then set `WEBUI_URL` in `docker/.env`:
+
+```caddy
+# Example — Mac mini Caddy (set RIG_IP in .env)
+ai.{$DOMAIN}      { reverse_proxy {$RIG_IP}:3000 }    # Open WebUI
+llm.{$DOMAIN}     { reverse_proxy {$RIG_IP}:4000 }    # LiteLLM
+ollama.{$DOMAIN}  { reverse_proxy {$RIG_IP}:11434 }   # Ollama API
+mcpo.{$DOMAIN}    { reverse_proxy {$RIG_IP}:8000 }    # mcpo tools
+```
+
+```bash
+# docker/.env
+WEBUI_URL=https://ai.example.com
+cd docker && docker compose up -d
+```
+
+**Plain HTTP over Tailscale** (`http://<rig>:3000`) still works if you skip HTTPS — you only lose
+browser mic/clipboard/PWA secure-context features.
 
 ### 6. Allow Tailscale through the host firewall (only if you enabled ufw/firewalld in step 3)
 
@@ -95,9 +102,8 @@ Enable **MagicDNS** in the admin console so the short name `cachybox` resolves; 
 
 ### 2a. Open WebUI (chat) — zero install
 
-Open a browser to whichever you set up in Phase 1 step 5:
-`http://cachybox:3000`  •  or `https://ai.tabaska.us` (NAS proxy)  •  or `https://cachybox.tailnet-xxxx.ts.net` (bundled Caddy).
-First account created becomes admin.
+Open a browser to your HTTPS front door (e.g. `https://ai.example.com`) or plain HTTP over Tailscale
+(`http://<rig>:3000`). First account created becomes admin.
 
 ### 2b. OpenCode (agentic coding against the rig's models)
 
@@ -107,7 +113,9 @@ cd local-ai-tooling/agentic && ./scripts/setup-agentic.sh
 # on macOS this installs opencode/uv/repomix + configs; it auto-skips model pulls (no Ollama here)
 
 $EDITOR ~/.config/opencode/opencode.json
-#   change baseURL: "http://cachybox.local:11434/v1"  ->  "http://cachybox:11434/v1"
+#   change baseURL to your Ollama endpoint, e.g.:
+#     "https://ollama.example.com/v1"   (reverse-proxied)
+#     "http://cachybox:11434/v1"        (Tailscale / LAN direct)
 
 curl -s http://cachybox:11434/api/tags | head        # sanity: lists the rig's models?
 cd ~/some-project && opencode                          # /models to confirm, then describe a feature
@@ -120,10 +128,10 @@ local checkout, so code intel is fast and files never leave the laptop except as
 
 ## Gotchas
 
-- **`cachybox.local` vs `cachybox`:** `.local` is mDNS (same LAN only). From work always use the
-  Tailscale MagicDNS name or the `100.x` IP — that's the one config edit that matters in 2b.
-- **Bundled Caddy is opt-in.** `docker compose up -d` skips it. Only `--profile caddy up -d` starts it.
-  No conflict with your NAS Caddy — they're on different hosts.
+- **`cachybox.local` vs `cachybox`:** `.local` is mDNS (same LAN only). From work use your HTTPS
+  subdomain, the Tailscale MagicDNS name, or the `100.x` IP.
+- **No Caddy on the rig.** HTTPS terminates on your always-on reverse proxy. See `docker/Caddyfile.deprecated`
+  if you ever need the old tailnet-only bundled-Caddy config.
 - **`code:opencode` / `gemma4-code:64k` handles live on the rig** (built in Phase 1). The Mac just
   references them by name over the API; nothing to build locally.
 - **VRAM:** after a real task, `ollama ps` on the rig. If `qwen3.6:27b` @64k shows CPU offload, switch

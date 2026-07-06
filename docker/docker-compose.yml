@@ -47,6 +47,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@litellm-db:5432/${POSTGRES_DB}
     volumes:
       - ./litellm-config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml"]
@@ -59,18 +60,15 @@ services:
     container_name: open-webui
     restart: unless-stopped
     ports:
-      # Direct HTTP access. Once Caddy is up you can REMOVE this line to make Caddy (HTTPS)
-      # the only way in — the container still talks to Caddy over the internal docker network.
+      # LAN access; HTTPS via your reverse proxy (e.g. ai.example.com → this port).
       - "3000:8080"
     environment:
       # Native Ollama connection (gives you the model-pull UI + first-class Ollama features):
       OLLAMA_BASE_URL: http://host.docker.internal:11434
       # Stable secret so saved tool/OAuth creds survive restarts:
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
-      # External URL Open WebUI advertises (absolute links, login redirects, PWA). Set WEBUI_URL in
-      # .env to whatever hostname you actually reach it on (your NAS domain, the TS name, or
-      # http://<rig>:3000). Falls back to https://${TS_HOSTNAME} if WEBUI_URL is unset.
-      WEBUI_URL: ${WEBUI_URL:-https://${TS_HOSTNAME}}
+      # External URL Open WebUI advertises (absolute links, login redirects, PWA).
+      WEBUI_URL: ${WEBUI_URL:-}
       # Faster inference for models that support it:
       OLLAMA_FLASH_ATTENTION: "1"
       # New signups require admin approval (first account created becomes admin):
@@ -93,39 +91,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # ---- Caddy: reverse proxy with trusted HTTPS from your Tailscale tailnet ----
-  # Serves Open WebUI at https://${TS_HOSTNAME}. See docker/Caddyfile for prerequisites.
-  caddy:
-    image: caddy:2-alpine
-    container_name: caddy
-    restart: unless-stopped
-    # OPT-IN ONLY: skipped by `docker compose up -d`. Start with `docker compose --profile caddy up -d`
-    # if you want THIS box to own HTTPS via your Tailscale tailnet. If you already run a reverse
-    # proxy (e.g. Caddy on your NAS), leave this off and point that proxy at <rig-ip>:3000 —
-    # then set WEBUI_URL in .env to the hostname you front it with. See README + INSTRUCTIONS.md.
-    profiles: ["caddy"]
-    ports:
-      - "80:80"
-      - "443:443"
-      # Uncomment alongside the matching optional blocks in the Caddyfile:
-      # - "8443:8443"   # litellm over https
-      # - "8444:8444"   # mcpo over https
-      # - "8445:8445"   # ollama over https
-    environment:
-      TS_HOSTNAME: ${TS_HOSTNAME}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-      # Lets Caddy fetch *.ts.net certificates from the host's Tailscale daemon:
-      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
-    extra_hosts:
-      - "host.docker.internal:host-gateway"   # only needed if you proxy Ollama via Caddy
-    depends_on:
-      - open-webui
 
 volumes:
   litellm_pgdata:
   open_webui_data:
-  caddy_data:
-  caddy_config:

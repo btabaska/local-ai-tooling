@@ -50,7 +50,7 @@ model_list:
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
-  database_url: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@litellm-db:5432/${POSTGRES_DB}"
+  database_url: os.environ/DATABASE_URL
 
 litellm_settings:
   drop_params: true          # silently drop provider-unsupported params instead of erroring

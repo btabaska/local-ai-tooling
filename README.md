@@ -81,8 +81,8 @@ Two front doors on purpose:
 | Chat UI | **Open WebUI** | Docker | 3000 | Best-in-class Ollama frontend: multi-model chat, RAG, web search, tools, users. |
 | Tool bridge | **mcpo** | Docker | 8000 | Turns stdio MCP servers into OpenAPI so Open WebUI (and any HTTP client) can call them. Central place to host tools. |
 | Key store | **Postgres** | Docker | (internal) | Backs LiteLLM virtual keys + spend. |
-| Access | **Tailscale** *(opt.)* | native | — | Reach everything from outside the house, no port-forwarding. |
-| TLS/naming | **Caddy** *(opt.)* | Docker | 80/443 | Friendly `https://chat.home` URLs. |
+| Access | **Tailscale** *(opt.)* | native | — | Reach plain-HTTP ports from outside the house, no port-forwarding. |
+| TLS/naming | **Your reverse proxy** *(opt.)* | separate host | 443 | Front rig services with friendly `https://` URLs — not on the rig. |
 
 **Models** (managed once on the server, via `03-model-variants.sh`):
 
@@ -207,72 +207,38 @@ servers directly — use that for HTTP MCPs like Context7; use mcpo for stdio on
 
 ---
 
-## Add-on: HTTPS for Open WebUI
+## Add-on: HTTPS (reverse proxy on a separate host)
 
 Open WebUI only needs HTTPS for browser secure-context features (mic input, clipboard, PWA install);
-the APIs are already encrypted by WireGuard over Tailscale, so HTTPS on them is optional. You have
-three ways to handle it — pick one.
+the APIs are already encrypted by WireGuard over Tailscale, so HTTPS is optional. **Do not run Caddy
+on the rig** — terminate TLS on an always-on box (Mac mini, NAS, etc.) that reverse-proxies to the
+rig's LAN ports.
 
-### Option A — You already run a reverse proxy (e.g. Caddy on your NAS) ✅ recommended if you have one
-Leave the **bundled Caddy off** (it's profiled out, so `docker compose up -d` already skips it) and
-point your existing proxy at the rig's plain-HTTP Open WebUI on `:3000`. On your NAS Caddyfile:
+### Recommended — front all rig services from your existing Caddy
 
 ```caddy
-ai.tabaska.us {
-    reverse_proxy <rig-lan-ip>:3000
-}
+# Set RIG_IP to the rig's LAN address in your proxy's .env
+ai.{$DOMAIN}      { reverse_proxy {$RIG_IP}:3000 }    # Open WebUI
+llm.{$DOMAIN}     { reverse_proxy {$RIG_IP}:4000 }    # LiteLLM
+ollama.{$DOMAIN}  { reverse_proxy {$RIG_IP}:11434 }   # Ollama API
+mcpo.{$DOMAIN}    { reverse_proxy {$RIG_IP}:8000 }    # mcpo tools
 ```
 
-Caddy handles Open WebUI's WebSocket upgrade automatically, and your NAS already owns the
-`*.tabaska.us` cert. Then set the advertised URL so login redirects/absolute links are correct — in
-`docker/.env`:
+Set the advertised URL in `docker/.env` so Open WebUI login redirects work:
 
 ```
-WEBUI_URL=https://ai.tabaska.us
+WEBUI_URL=https://ai.example.com
 ```
 
-Note on **remote access**: if that hostname resolves to a LAN IP (split-horizon DNS), it won't be
-reachable from your work MacBook unless the name is also served over Tailscale. For off-LAN browser
-access either use Option B (the `.ts.net` name, reachable anywhere on the tailnet) or just hit
-`http://cachybox:3000` over Tailscale (Option C).
+### Plain HTTP over Tailscale (no HTTPS)
 
-### Option B — Let the bundled Caddy own HTTPS via your tailnet
-The rig fetches a trusted cert for its `*.ts.net` name from the local Tailscale daemon (auto-renews),
-and the same `https://` URL works from anywhere on the tailnet — no port-forwarding, no warnings.
+`http://<rig>:3000` from any tailnet device is encrypted on the wire. You only lose browser
+secure-context features (mic, clipboard, PWA). No `WEBUI_URL` needed.
 
-**One-time prerequisites**
-1. Tailscale admin console → **DNS** → enable **MagicDNS** and **Enable HTTPS Certificates**.
-   (Being connected to Tailscale is not the same as having HTTPS issuance turned on.)
-2. `tailscale status` on the box → note its MagicDNS name (e.g. `cachybox.tailnet-abcd.ts.net`).
-   Put it in `docker/.env` as `TS_HOSTNAME`.
+### Deprecated — bundled Caddy on the rig
 
-**Enable it** (note the `--profile caddy` — the service is opt-in):
-```bash
-# TS_HOSTNAME must be set in docker/.env first
-cd docker && docker compose --profile caddy up -d
-```
-The Compose service already mounts the host's `tailscaled` socket
-(`/var/run/tailscale/tailscaled.sock`) so Caddy can request certs; Caddy runs as root in the
-container, so no extra permission setup is needed. Then browse to **`https://<your-host>.ts.net`**
-— you'll land on Open WebUI over HTTPS. Once you've confirmed it, you can delete the `3000:8080`
-line from the `open-webui` service so Caddy becomes the only entrypoint for the UI.
-
-### Option C — Skip HTTPS entirely, use plain HTTP over Tailscale
-Tailscale already encrypts everything, so `http://cachybox:3000` from any tailnet device is perfectly
-secure on the wire. The only thing you lose is browser secure-context features (mic, clipboard, PWA).
-Least moving parts: leave Caddy off, don't set `WEBUI_URL`, and just browse to the `:3000` port.
-
-**Details & knobs** for Option B live in `docker/Caddyfile`:
-- Uncomment the optional per-service blocks to also expose LiteLLM / mcpo / Ollama over HTTPS on
-  distinct ports (`:8443`, `:8444`, `:8445`) — and uncomment the matching ports in the caddy
-  service. If a port-suffixed block fails to get a cert on your tailnet, just use the plain-HTTP
-  ports over Tailscale instead.
-- A commented `*.home` / `tls internal` block is included for LAN clients that aren't on Tailscale
-  (they'd trust Caddy's local CA once).
-
-*Non-root Caddy note:* if you ever run Caddy as a non-root user, grant its UID cert access by
-adding `Environment=TS_PERMIT_CERT_UID=<uid>` to a `tailscaled` systemd drop-in
-(`sudo systemctl edit tailscaled`) and `sudo systemctl restart tailscaled`.
+An older opt-in tailnet Caddy lived in this repo (`docker compose --profile caddy`). It has been
+removed from the default stack. See `docker/Caddyfile.deprecated` if you need that config.
 
 ---
 
@@ -282,10 +248,8 @@ adding `Environment=TS_PERMIT_CERT_UID=<uid>` to a `tailscaled` systemd drop-in
    raw, unauthenticated Ollama URL. With it you get stable aliases, revocable per-tool keys, spend
    visibility, automatic fallbacks, and a clean path to mixing in cloud models later — all on one
    URL. Highest-leverage addition for your stated goals.
-2. **Tailscale is already handling remote access** — good. The main thing to add on top is the
-   Caddy + Tailscale HTTPS layer above, so browser features and clean URLs work over the tailnet.
-   Worth double-checking: **HTTPS Certificates** is enabled in the admin console (separate from
-   just being connected), and ACLs allow the client devices to reach this node's ports.
+2. **Tailscale handles remote access** — good. Add HTTPS on your always-on reverse proxy if you want
+   browser mic/clipboard/PWA features and clean `https://` URLs.
 3. **Backups.** Your value is in Open WebUI (chats, users, RAG docs) and LiteLLM (keys, spend) —
    both in Docker named volumes. Snapshot them: `docker run --rm -v open_webui_data:/d -v
    $PWD:/b alpine tar czf /b/openwebui-$(date +%F).tgz -C /d .` (repeat for `litellm_pgdata`).
@@ -298,8 +262,8 @@ adding `Environment=TS_PERMIT_CERT_UID=<uid>` to a `tailscaled` systemd drop-in
    `nvtop` (`sudo pacman -S nvtop`) for a live GPU view.
 6. **Keep OpenCode fully local.** By default it calls a *hosted* small model for session titles.
    The provided config sets `small_model` to a local one so nothing leaves your box.
-7. **TLS / friendly names (optional).** Uncomment the Caddy service + add a `Caddyfile` to get
-   `https://chat.home`, `https://llm.home` instead of ports. Nice-to-have, not required on a LAN.
+7. **TLS / friendly names (optional).** Front the rig from your existing reverse proxy — see the
+   HTTPS add-on above. Do not run a second Caddy on the rig.
 8. **A "golden" second coding model.** You've been bitten by tool-call bugs; having Devstral 24B
    pre-pulled and wired as a LiteLLM fallback means a flaky model degrades gracefully instead of
    blocking you.

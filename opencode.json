@@ -1,0 +1,104 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  "//": "FULL agentic OpenCode config. Goes at ~/.config/opencode/opencode.json (global).",
+  "//2": "Replace cachybox.local with your rig's IP / Tailscale name. Skills in skills/ auto-trigger,",
+  "//3": "so the brainstorm->plan->TDD->review->compound workflow runs itself — see agentic/README.md.",
+  "//4": "DEFAULT DRIVER is now Qwen3.6-27B: the Qwen tool-calling bug was fixed upstream (Unsloth/llama.cpp,",
+  "//5": "works in Ollama), so the reliability reason to default to Devstral is gone. Devstral/Qwen3-Coder/",
+  "//6": "Gemma 4 remain listed — switch with /models or Ctrl+A and A/B them on your own repos.",
+
+  "//providers": "Talk straight to Ollama on the rig. Direct (not via LiteLLM) isolates tool-calling to the model.",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (rig)",
+      "options": { "baseURL": "http://cachybox.local:11434/v1" },
+      "models": {
+        "qwen3.6:27b": {
+          "name": "Qwen3.6 27B — DEFAULT driver (flagship-level coding, dense, 256K)",
+          "tools": true
+        },
+        "qwen3.6:35b-a3b": {
+          "name": "Qwen3.6 35B-A3B — speed/context option (MoE ~3B active, fast, VRAM-lean)",
+          "//": "MoE: much faster + leaner than the dense 27B; can hold full 64K on 24GB with a little offload.",
+          "tools": true
+        },
+        "devstral:24b": {
+          "name": "Devstral 24B — agentic alternative (dense, clean multi-file diffs)",
+          "//": "Was the default for tool-call reliability; still excellent, but ~2x the KV-cache cost of the MoEs.",
+          "tools": true
+        },
+        "code:opencode": {
+          "name": "Qwen3-Coder 64k — dedicated coder distil (older gen, still solid)",
+          "tools": true
+        },
+        "gemma4:31b-it-qat": {
+          "name": "Gemma 4 31B — you wanted to test this (chat/plan)",
+          "//": "Solid at reasoning/chat; weaker at tool-calling/orchestration than the Qwen/Devstral options.",
+          "tools": true
+        },
+        "gemma4-code:64k": {
+          "name": "Gemma 4 31B @ 64k — test it as a coding driver",
+          "tools": true
+        },
+        "tag:fast": { "name": "tag:fast — tiny utility", "tools": false }
+      }
+    }
+  },
+
+  "//model": "Default driver = Qwen3.6-27B. To try another, set this to ollama/qwen3.6:35b-a3b (speed),",
+  "//model2": "ollama/devstral:24b, ollama/code:opencode, or ollama/gemma4-code:64k — or press Ctrl+A / run /models.",
+  "model": "ollama/qwen3.6:27b",
+  "small_model": "ollama/tag:fast",
+
+  "//instructions": "Extra rules files merged into context alongside each project's AGENTS.md.",
+  "instructions": ["~/.config/opencode/AGENTS.md"],
+
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "model": "ollama/qwen3.6:27b",
+      "temperature": 0.1,
+      "permission": {
+        "edit": "allow",
+        "webfetch": "allow",
+        "bash": { "*": "allow", "git push*": "ask", "rm -rf*": "ask", "sudo*": "ask" }
+      }
+    },
+    "plan": {
+      "mode": "primary",
+      "model": "ollama/code:opencode",
+      "//": "Plan is read-only; kept on the coder model for a different perspective + big context during research.",
+      "temperature": 0.1,
+      "permission": { "edit": "deny", "bash": "deny" }
+    }
+  },
+
+  "//mcp": "Keep this list SHORT — every server's tool schemas eat context, scarce on a 24GB model.",
+  "mcp": {
+    "serena": {
+      "type": "local",
+      "enabled": true,
+      "//": "Symbol-level code intel via LSP. Far cheaper than grep-and-dump — critical for small context.",
+      "command": [
+        "uvx", "--from", "git+https://github.com/oraios/serena",
+        "serena", "start-mcp-server",
+        "--context", "ide-assistant",
+        "--project", "{cwd}"
+      ],
+      "environment": { "PYTHONUNBUFFERED": "1" }
+    },
+    "context7": {
+      "type": "remote",
+      "enabled": true,
+      "//": "Up-to-date library docs so the model stops hallucinating APIs. Add 'use context7' to prompts.",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  },
+
+  "//tools": "All workflow skills in skills/ are on by default (progressive disclosure keeps them cheap).",
+  "tools": { "skills*": true },
+
+  "permission": { "//": "Global fallback; agent blocks above take precedence.", "edit": "ask", "bash": "ask" }
+}

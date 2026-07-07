@@ -76,3 +76,49 @@ Admin → Settings → **Functions**. Three kinds worth knowing:
 Enable Native tool calling on `chat`; attach `serena` + `fetch` from mcpo; set up `nomic-embed-text`
 + Hybrid Search; create one custom model for your most common workflow; add an auto-memory filter.
 That covers ~80% of what people miss from Claude, all local.
+
+---
+
+## Custom model recipes (as built on this rig, 2026-07-07)
+
+Two ready-to-recreate custom models. Workspace → Models → ➕, set the fields below, Save.
+
+### Rig Coder — coding / agentic (qwen3.6:64k)
+- **Base:** `qwen3.6:64k`  ·  **Tools:** serena, fetch, time  ·  **Function Calling:** Native
+- **System prompt:** senior local coding assistant; use serena for symbol-level navigation before
+  answering; never claim "no results" when a tool returned data; don't edit unless asked.
+- **Capabilities:** Vision on, Citations on.
+- **Advanced Params:** `num_ctx=65536`, `temperature=0.3`, `top_p=0.95`, `top_k=20`, `min_p=0`,
+  `repeat_penalty=1.1`, `presence_penalty=0` (overrides the aggressive 1.5 baked into the model),
+  `keep_alive=30m`. Leave `think` on. **Traps:** never set `format=json` or `num_gpu`; keep mirostat off.
+
+### Rig Thinker — general / non-coding (gemma4:31b-it-qat)
+- **Base:** `gemma4:31b-it-qat`  ·  **Tools:** fetch, time (no serena)  ·  **Function Calling:** Native
+  (**fall back to Default if tool calls misfire** — Gemma is a weaker tool-caller).
+- **System prompt:** general-purpose thinking assistant (reasoning, writing, analysis, planning);
+  think step by step; use web search / fetch for current facts; never claim "no results" on data.
+- **Capabilities:** Vision on (gemma4 has a vision projector), Citations on.
+- **Advanced Params:** `num_ctx=49152`, `temperature=0.7`, `top_p=0.95`, `top_k=64` (Gemma's rec),
+  `min_p=0`, `repeat_penalty=1.1`, `presence_penalty=0`, `keep_alive=30m`. Leave `think` on.
+  ⚠️ Gemma bakes **no** `num_ctx`, so leaving it blank runs at ~4k — always set it.
+
+### Web search is the globe toggle, not a tool
+Open WebUI web search (Kagi, Bypass-Retrieval on) is activated by the **🌐 globe icon** in the message
+box — OWUI runs the search and injects results into context. The model does **not** see a callable
+"web search" tool, so asking it "do you have web search?" returns *no* even though it works. To use it:
+toggle the globe on, then ask. (To make search a real callable tool, add a search MCP server to mcpo.)
+
+### VRAM curve — max `num_ctx` fully on GPU (RTX 3090 Ti 24 GB, flash-attn + q8 KV)
+
+Measured for `gemma4:31b-it-qat` (18 GB weights); `qwen3.6:64k` behaves similarly:
+
+| num_ctx | VRAM | Processor | Note |
+|--------:|-----:|-----------|------|
+| 32768 | 18 GB | 100% GPU | |
+| 49152 | 18 GB | 100% GPU | **tag:fast coexists** (no eviction) — best for daily use |
+| 65536 | 19 GB | 100% GPU | max solo; **evicts** the tag:fast helper |
+| 73728+ | 20 GB+ | CPU offload | avoid — spills off GPU |
+
+Rule of thumb: **≤49152** if you want the small utility model (`tag:fast`) resident alongside a big
+model; **65536** is the ceiling for full-GPU speed on a single model. Above ~72k it offloads to CPU.
+After a real task, run `ollama ps` — any CPU/RAM split means back the context off.

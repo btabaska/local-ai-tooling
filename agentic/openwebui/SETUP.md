@@ -4,6 +4,19 @@ Open WebUI already runs in the base stack. These settings turn it from a chat bo
 closer to Claude's app experience: tool-using, document-grounded, with reusable "assistants." All
 of this runs on your CPU/RAM — only the model itself uses the GPU.
 
+> **Applied on this rig (2026-07-07) — the settings that fixed tool calling + web search.**
+> These live in the `open_webui_data` DB (PersistentConfig), so they persist across restarts but
+> are **not** reproduced by env alone — the compose env only seeds a *fresh* volume. To rebuild:
+> - **External Tools (OpenAPI):** `http://mcpo:8000/time`, `/fetch`, `/context7` (add `/serena`,
+>   `/sequential-thinking` after expanding mcpo). Use the `mcpo` container name, not `localhost`.
+> - **Native Function Calling = Native** on tool-capable models only: `qwen3.6:64k`, `qwen3.6:27b`,
+>   `qwen3.6:35b-a3b`, `devstral:24b`, `code:opencode`. Keep `gemma4*` / `tag:fast` on **Default**
+>   (weak tool-callers). Attach `time`+`fetch` to each native model.
+> - **Web Search → Bypass Embedding and Retrieval = ON**, engine Kagi, result count 10,
+>   concurrent requests 5. (Seeded by `BYPASS_EMBEDDING_AND_RETRIEVAL` / `WEB_SEARCH_*` in
+>   `docker/docker-compose.yml`.) This is the fix for "search ran but the model said no results."
+> - Backups of the working volume live under `local-ai-tooling/backups/`.
+
 ## 1. Native tool calling (do this first)
 Admin Panel → Settings → Models → pick a model → **Advanced Params → Function Calling = Native**.
 This lets the model itself decide which tools to call each turn (vs the old prompt-injection method).

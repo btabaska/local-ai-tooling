@@ -85,6 +85,18 @@ sudo ufw allow in on tailscale0
 tailscale status         # note the rig's name (e.g. "cachybox") — used on the Mac
 ```
 
+### 8. Post-bootstrap Open WebUI settings (required for tools + web search)
+
+The stack comes up healthy, but Open WebUI tools, native tool calling, and web-search grounding
+are **UI/DB settings** the bootstrap can't set. Do them once — full details in
+`agentic/openwebui/SETUP.md` ("Applied on this rig"):
+
+1. **External Tools:** register `http://mcpo:8000/time`, `/fetch`, `/context7` (Type OpenAPI).
+2. **Native tool calling:** set Function Calling = Native on the Qwen/Devstral models; attach tools.
+3. **Web search:** turn on **Bypass Embedding and Retrieval** (fixes "search ran, model said none").
+
+Skipping this is why a fresh install shows "no tools" and web search returns nothing usable.
+
 ---
 
 ## Phase 2 — On the work MacBook

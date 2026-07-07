@@ -1,4 +1,11 @@
 {
+  "//": "docker/mcpo-config.json — EXPANDED shared tool host for Open WebUI.",
+  "//2": "mcpo bridges stdio MCP servers to OpenAPI so Open WebUI can call them. Each is served at its",
+  "//3": "own subpath, e.g. http://mcpo:8000/serena , /fetch , /time . Browse all at :8000/docs.",
+  "//4": "Add to Open WebUI: Admin -> Settings -> External Tools -> + -> Type OpenAPI, URL http://mcpo:8000/<name>.",
+  "//5": "Note: mcpo runs in Docker. Servers that touch the filesystem/git only see what is mounted into the",
+  "//6": "mcpo container. docker-compose.yml mounts REPOS_PATH (default ~/Documents/GitHub) at /repos so",
+  "//7": "serena can reach your repos. Change serena --project below to any /repos/<name> you want in chat.",
   "mcpServers": {
     "time": {
       "command": "uvx",
@@ -8,9 +15,25 @@
       "command": "uvx",
       "args": ["mcp-server-fetch"]
     },
+    "sequential-thinking": {
+      "//": "Gives chat models a scratchpad for multi-step reasoning.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
     "context7": {
+      "//": "Up-to-date library docs, same as in OpenCode.",
       "type": "streamable-http",
       "url": "https://mcp.context7.com/mcp"
+    },
+    "serena": {
+      "//": "Semantic code intel for chat. Default project /repos/app; all repos mounted under /repos.",
+      "command": "uvx",
+      "args": [
+        "--from", "git+https://github.com/oraios/serena",
+        "serena", "start-mcp-server",
+        "--context", "ide-assistant",
+        "--project", "/repos/app"
+      ]
     }
   }
 }

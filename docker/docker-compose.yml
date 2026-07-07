@@ -101,6 +101,9 @@ services:
       - "8000:8000"
     volumes:
       - ./mcpo-config.json:/app/config/config.json:ro
+      # Mount your repos so serena (and any fs/git MCP) can reach them at /repos/<name>.
+      # Set REPOS_PATH in .env; defaults to the common GitHub checkout dir.
+      - ${REPOS_PATH:-/home/btabaska/Documents/GitHub}:/repos
     command: ["--host", "0.0.0.0", "--port", "8000", "--config", "/app/config/config.json"]
     extra_hosts:
       - "host.docker.internal:host-gateway"

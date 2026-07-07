@@ -15,6 +15,13 @@ of this runs on your CPU/RAM — only the model itself uses the GPU.
 > - **Web Search → Bypass Embedding and Retrieval = ON**, engine Kagi, result count 10,
 >   concurrent requests 5. (Seeded by `BYPASS_EMBEDDING_AND_RETRIEVAL` / `WEB_SEARCH_*` in
 >   `docker/docker-compose.yml`.) This is the fix for "search ran but the model said no results."
+> - **Expanded mcpo tools:** `sequential-thinking` + `serena` added (register `http://mcpo:8000/serena`
+>   and `http://mcpo:8000/sequential-thinking` in External Tools). `/repos` (host `REPOS_PATH`) is
+>   mounted into mcpo so serena reaches your code.
+>   ⚠️ **Serena exposes write tools** (`replace_content`, `safe_delete_symbol`, …) and `/repos` is
+>   mounted read-write — a chat model with serena attached can edit your repos. If you only want
+>   read-only code intel in chat, change the mount to `:ro` in `docker/docker-compose.yml` (note:
+>   `:ro` disables serena's memory/onboarding writes). Serena for editing lives in OpenCode anyway.
 > - Backups of the working volume live under `local-ai-tooling/backups/`.
 
 ## 1. Native tool calling (do this first)

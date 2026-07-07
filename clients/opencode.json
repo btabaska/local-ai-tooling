@@ -1,10 +1,5 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "//": "Drop this at ~/.config/opencode/opencode.json on ANY machine on your LAN.",
-  "//2": "Replace cachybox.local with your server's IP or mDNS name. This points OpenCode at",
-  "//3": "the remote Ollama directly (simplest, and isolates tool-calling behavior to the model).",
-  "//4": "See the bottom for the LiteLLM-gateway variant if you prefer central auth/aliases.",
-
   "provider": {
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",
@@ -19,32 +14,14 @@
         },
         "gemma4:31b-it-qat": {
           "name": "Gemma 4 31B (cachybox)",
-          "//tools": "Set false if this model produces malformed tool calls in your testing.",
           "tools": true
         }
       }
     }
   },
-
   "model": "ollama/code:opencode",
-
-  "//small_model": "Keeps OpenCode 100% local — otherwise it uses a hosted model for session titles.",
   "small_model": "ollama/gemma4:31b-it-qat",
-
   "permission": {
     "edit": "ask"
-  }
-
-  ,"//LITELLM_VARIANT": "To route through the gateway instead, replace the provider block with:",
-  "//example": {
-    "litellm": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "LiteLLM (cachybox)",
-      "options": {
-        "baseURL": "http://cachybox.local:4000/v1",
-        "headers": { "Authorization": "Bearer sk-YOUR-VIRTUAL-KEY" }
-      },
-      "models": { "code": { "name": "code", "tools": true } }
-    }
   }
 }

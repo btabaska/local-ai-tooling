@@ -73,6 +73,20 @@ services:
       OLLAMA_FLASH_ATTENTION: "1"
       # New signups require admin approval (first account created becomes admin):
       DEFAULT_USER_ROLE: pending
+      # ── Web search (Kagi) ──────────────────────────────────────────────────
+      # NOTE: these are Open WebUI *PersistentConfig* vars — they only SEED a fresh
+      # open_webui_data volume. Once a value exists in the DB it is authoritative and
+      # these env vars are ignored on later boots. To change a setting on a running
+      # install, use Admin → Settings (see agentic/openwebui/SETUP.md). They live here
+      # so a rebuild from an empty volume reproduces the working config.
+      ENABLE_WEB_SEARCH: "true"
+      WEB_SEARCH_ENGINE: kagi
+      KAGI_SEARCH_API_KEY: ${KAGI_SEARCH_API_KEY:-}
+      WEB_SEARCH_RESULT_COUNT: "10"
+      WEB_SEARCH_CONCURRENT_REQUESTS: "5"
+      # Inject full search results into context instead of RAG-chunk+retrieve. Fixes the
+      # "search ran but model says no results" failure on large-context models. See SETUP.md.
+      BYPASS_EMBEDDING_AND_RETRIEVAL: "true"
     volumes:
       - open_webui_data:/app/backend/data
     extra_hosts:
@@ -87,6 +101,9 @@ services:
       - "8000:8000"
     volumes:
       - ./mcpo-config.json:/app/config/config.json:ro
+      # Mount your repos so serena (and any fs/git MCP) can reach them at /repos/<name>.
+      # Set REPOS_PATH in .env; defaults to the common GitHub checkout dir.
+      - ${REPOS_PATH:-/home/btabaska/Documents/GitHub}:/repos
     command: ["--host", "0.0.0.0", "--port", "8000", "--config", "/app/config/config.json"]
     extra_hosts:
       - "host.docker.internal:host-gateway"

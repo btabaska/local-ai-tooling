@@ -4,6 +4,26 @@ Open WebUI already runs in the base stack. These settings turn it from a chat bo
 closer to Claude's app experience: tool-using, document-grounded, with reusable "assistants." All
 of this runs on your CPU/RAM — only the model itself uses the GPU.
 
+> **Applied on this rig (2026-07-07) — the settings that fixed tool calling + web search.**
+> These live in the `open_webui_data` DB (PersistentConfig), so they persist across restarts but
+> are **not** reproduced by env alone — the compose env only seeds a *fresh* volume. To rebuild:
+> - **External Tools (OpenAPI):** `http://mcpo:8000/time`, `/fetch`, `/context7` (add `/serena`,
+>   `/sequential-thinking` after expanding mcpo). Use the `mcpo` container name, not `localhost`.
+> - **Native Function Calling = Native** on tool-capable models only: `qwen3.6:64k`, `qwen3.6:27b`,
+>   `qwen3.6:35b-a3b`, `devstral:24b`, `code:opencode`. Keep `gemma4*` / `tag:fast` on **Default**
+>   (weak tool-callers). Attach `time`+`fetch` to each native model.
+> - **Web Search → Bypass Embedding and Retrieval = ON**, engine Kagi, result count 10,
+>   concurrent requests 5. (Seeded by `BYPASS_EMBEDDING_AND_RETRIEVAL` / `WEB_SEARCH_*` in
+>   `docker/docker-compose.yml`.) This is the fix for "search ran but the model said no results."
+> - **Expanded mcpo tools:** `sequential-thinking` + `serena` added (register `http://mcpo:8000/serena`
+>   and `http://mcpo:8000/sequential-thinking` in External Tools). `/repos` (host `REPOS_PATH`) is
+>   mounted into mcpo so serena reaches your code.
+>   ⚠️ **Serena exposes write tools** (`replace_content`, `safe_delete_symbol`, …) and `/repos` is
+>   mounted read-write — a chat model with serena attached can edit your repos. If you only want
+>   read-only code intel in chat, change the mount to `:ro` in `docker/docker-compose.yml` (note:
+>   `:ro` disables serena's memory/onboarding writes). Serena for editing lives in OpenCode anyway.
+> - Backups of the working volume live under `local-ai-tooling/backups/`.
+
 ## 1. Native tool calling (do this first)
 Admin Panel → Settings → Models → pick a model → **Advanced Params → Function Calling = Native**.
 This lets the model itself decide which tools to call each turn (vs the old prompt-injection method).
@@ -56,3 +76,49 @@ Admin → Settings → **Functions**. Three kinds worth knowing:
 Enable Native tool calling on `chat`; attach `serena` + `fetch` from mcpo; set up `nomic-embed-text`
 + Hybrid Search; create one custom model for your most common workflow; add an auto-memory filter.
 That covers ~80% of what people miss from Claude, all local.
+
+---
+
+## Custom model recipes (as built on this rig, 2026-07-07)
+
+Two ready-to-recreate custom models. Workspace → Models → ➕, set the fields below, Save.
+
+### Rig Coder — coding / agentic (qwen3.6:64k)
+- **Base:** `qwen3.6:64k`  ·  **Tools:** serena, fetch, time  ·  **Function Calling:** Native
+- **System prompt:** senior local coding assistant; use serena for symbol-level navigation before
+  answering; never claim "no results" when a tool returned data; don't edit unless asked.
+- **Capabilities:** Vision on, Citations on.
+- **Advanced Params:** `num_ctx=65536`, `temperature=0.3`, `top_p=0.95`, `top_k=20`, `min_p=0`,
+  `repeat_penalty=1.1`, `presence_penalty=0` (overrides the aggressive 1.5 baked into the model),
+  `keep_alive=30m`. Leave `think` on. **Traps:** never set `format=json` or `num_gpu`; keep mirostat off.
+
+### Rig Thinker — general / non-coding (gemma4:31b-it-qat)
+- **Base:** `gemma4:31b-it-qat`  ·  **Tools:** fetch, time (no serena)  ·  **Function Calling:** Native
+  (**fall back to Default if tool calls misfire** — Gemma is a weaker tool-caller).
+- **System prompt:** general-purpose thinking assistant (reasoning, writing, analysis, planning);
+  think step by step; use web search / fetch for current facts; never claim "no results" on data.
+- **Capabilities:** Vision on (gemma4 has a vision projector), Citations on.
+- **Advanced Params:** `num_ctx=49152`, `temperature=0.7`, `top_p=0.95`, `top_k=64` (Gemma's rec),
+  `min_p=0`, `repeat_penalty=1.1`, `presence_penalty=0`, `keep_alive=30m`. Leave `think` on.
+  ⚠️ Gemma bakes **no** `num_ctx`, so leaving it blank runs at ~4k — always set it.
+
+### Web search is the globe toggle, not a tool
+Open WebUI web search (Kagi, Bypass-Retrieval on) is activated by the **🌐 globe icon** in the message
+box — OWUI runs the search and injects results into context. The model does **not** see a callable
+"web search" tool, so asking it "do you have web search?" returns *no* even though it works. To use it:
+toggle the globe on, then ask. (To make search a real callable tool, add a search MCP server to mcpo.)
+
+### VRAM curve — max `num_ctx` fully on GPU (RTX 3090 Ti 24 GB, flash-attn + q8 KV)
+
+Measured for `gemma4:31b-it-qat` (18 GB weights); `qwen3.6:64k` behaves similarly:
+
+| num_ctx | VRAM | Processor | Note |
+|--------:|-----:|-----------|------|
+| 32768 | 18 GB | 100% GPU | |
+| 49152 | 18 GB | 100% GPU | **tag:fast coexists** (no eviction) — best for daily use |
+| 65536 | 19 GB | 100% GPU | max solo; **evicts** the tag:fast helper |
+| 73728+ | 20 GB+ | CPU offload | avoid — spills off GPU |
+
+Rule of thumb: **≤49152** if you want the small utility model (`tag:fast`) resident alongside a big
+model; **65536** is the ceiling for full-GPU speed on a single model. Above ~72k it offloads to CPU.
+After a real task, run `ollama ps` — any CPU/RAM split means back the context off.

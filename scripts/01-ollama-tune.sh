@@ -26,8 +26,15 @@ Environment="OLLAMA_ORIGINS=*"
 Environment="OLLAMA_FLASH_ATTENTION=1"
 # Quantize the K/V cache to 8-bit — ~half the memory of f16, negligible quality loss.
 Environment="OLLAMA_KV_CACHE_TYPE=q8_0"
-# How long an idle model stays resident before it's unloaded to free VRAM.
-Environment="OLLAMA_KEEP_ALIVE=30m"
+# GPU-contention policy (game-13): one 3090 Ti is shared by the Apollo
+# stream, the game servers, and AI inference. KEEP_ALIVE=0 unloads each
+# model IMMEDIATELY after its request completes, so VRAM frees between
+# requests instead of being held for the old 30m idle window. Trade-off:
+# every request cold-loads its model (a few seconds' extra latency) —
+# acceptable to guarantee VRAM headroom for gaming/streaming. Do not run
+# heavy inference during an active Apollo session or game server.
+# Regression-guarded by the rig-ollama-keepalive verification check.
+Environment="OLLAMA_KEEP_ALIVE=0"
 # Two 18GB models can't co-reside in 24GB, but a small (3-4B) helper + one big model can.
 # =2 lets Ollama keep a small utility model AND swap the big one; it evicts to fit VRAM.
 # Set =1 if you'd rather guarantee only one model ever loads (cleaner, but more swapping).

@@ -1,27 +1,88 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
-    "ollama": {
+    "litellm": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Ollama (cachybox)",
+      "name": "Homelab AI (LiteLLM on rig)",
       "options": {
-        "baseURL": "http://cachybox.local:11434/v1"
+        "baseURL": "https://llm.tabaska.us/v1",
+        "apiKey": "{env:LITELLM_API_KEY}"
       },
       "models": {
-        "code:opencode": {
-          "name": "Qwen3-Coder 64k (cachybox)",
-          "tools": true
+        "coder": {
+          "name": "coder - Qwen3.6 35B-A3B MoE (default; ai-01 bake-off winner)",
+          "tools": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
         },
-        "gemma4:31b-it-qat": {
-          "name": "Gemma 4 31B (cachybox)",
-          "tools": true
+        "coder-strong": {
+          "name": "coder-strong - Qwen3.6 27B dense (long/hard tasks)",
+          "tools": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
+        },
+        "fast": {
+          "name": "fast - Qwen2.5-Coder 7B (quick/cheap)",
+          "tools": true,
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          }
+        },
+        "utility": {
+          "name": "utility - Llama3.2 3B (titles/tags)",
+          "tools": false
         }
       }
     }
   },
-  "model": "ollama/code:opencode",
-  "small_model": "ollama/gemma4:31b-it-qat",
+  "model": "litellm/coder",
+  "small_model": "litellm/utility",
+  "instructions": [
+    "~/.config/opencode/AGENTS.md"
+  ],
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "model": "litellm/coder",
+      "temperature": 0.1,
+      "permission": {
+        "edit": "allow",
+        "webfetch": "allow",
+        "bash": {
+          "*": "allow",
+          "git push*": "ask",
+          "rm -rf*": "ask",
+          "sudo*": "ask"
+        }
+      }
+    },
+    "plan": {
+      "mode": "primary",
+      "model": "litellm/coder-strong",
+      "temperature": 0.1,
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    }
+  },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "enabled": true,
+      "url": "https://mcp.context7.com/mcp"
+    }
+  },
+  "tools": {
+    "skills*": true
+  },
   "permission": {
-    "edit": "ask"
+    "edit": "ask",
+    "bash": "ask"
   }
 }

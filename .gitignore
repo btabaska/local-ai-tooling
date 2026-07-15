@@ -23,3 +23,6 @@ Thumbs.db
 
 # volume snapshots (large)
 backups/
+.env.bak*
+docker/.env.bak*
+bakeoff/results/*.log

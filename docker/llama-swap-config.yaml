@@ -1,0 +1,131 @@
+# ── docker/llama-swap-config.yaml ────────────────────────────────────────────
+# llama-swap: on-demand llama.cpp model server (replaces native Ollama, ai-01).
+# Each model = one llama-server process, spawned on first request, unloaded on
+# idle (ttl) or force-unloaded via POST /api/models/unload (the Apollo/gaming
+# GPU-yield hook). Web UI + activity: http://rig:9292/ui
+#
+# GPU policy (game-13 successor): big models swap each other (one at a time),
+# unload after 120s idle; the tiny embedder is persistent (262 MB). A game
+# session force-unloads EVERYTHING via the admin endpoint — see
+# scripts/gpu-yield-unload.sh and the Apollo global_prep_cmd.
+#
+# VRAM ground truth measured on THIS card 2026-07-14 (24564 MiB total):
+# see ctx-size comments per model. q8_0 KV + flash-attn keeps KV ~half of f16.
+
+healthCheckTimeout: 300
+startPort: 10001
+
+macros:
+  "srv": >
+    /app/llama-server
+    --host 127.0.0.1 --port ${PORT}
+    -ngl 999
+    --flash-attn on
+    --cache-type-k q8_0 --cache-type-v q8_0
+    --jinja
+    --no-webui
+
+models:
+  # ---- Coding / agentic candidates (bake-off pool, ai-01) ----
+  "qwen3.6-27b":
+    name: "Qwen3.6 27B (dense UD-Q4_K_XL 17.6G, mainline HF GGUF)"
+    cmd: |
+      ${srv}
+      --model /models/Qwen3.6-27B-UD-Q4_K_XL.gguf
+      --ctx-size 32768
+    ttl: 120
+
+  "qwen3.6-35b-a3b":
+    name: "Qwen3.6 35B-A3B (MoE Q4, 23G weights — VRAM-tight)"
+    cmd: |
+      ${srv}
+      --model /models/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
+      --ctx-size 32768
+    ttl: 120
+
+  "qwen3-coder-30b":
+    name: "Qwen3 Coder 30B-A3B (MoE Q4, 18G weights)"
+    cmd: |
+      ${srv}
+      --model /models/qwen3-coder-30b.gguf
+      --ctx-size 65536
+      --temp 0.1 --top-p 0.8
+    ttl: 120
+
+  "devstral-24b":
+    name: "Devstral Small 24B (dense Q4, 14G weights)"
+    cmd: |
+      ${srv}
+      --model /models/devstral-24b.gguf
+      --ctx-size 65536
+    ttl: 120
+
+  # ---- Chat ----
+  "gemma4-31b-qat":
+    name: "Gemma 4 31B IT QAT (17G weights)"
+    cmd: |
+      ${srv}
+      --model /models/gemma4-31b-qat.gguf
+      --ctx-size 16384
+    ttl: 120
+
+  "deckard-heretic":
+    name: "DECKARD-HERETIC 31B Q6 (creative, 20G weights — VRAM-tight)"
+    cmd: |
+      ${srv}
+      --model /models/deckard-heretic.gguf
+      --ctx-size 8192
+    ttl: 120
+
+  # ---- Small / utility ----
+  "qwen2.5-coder-7b":
+    name: "Qwen2.5 Coder 7B (autocomplete / cheap tool loop)"
+    cmd: |
+      ${srv}
+      --model /models/qwen2.5-coder-7b.gguf
+      --ctx-size 32768
+    ttl: 300
+
+  "fast-3b":
+    name: "Llama 3.2 3B (tagging/titles/classification, temp 0)"
+    cmd: |
+      ${srv}
+      --model /models/llama3.2-3b.gguf
+      --ctx-size 8192
+      --temp 0
+    ttl: 300
+
+  # ---- Embeddings (persistent — 262 MB, coexists with any big model) ----
+  "nomic-embed":
+    name: "nomic-embed-text (RAG embeddings)"
+    cmd: |
+      /app/llama-server
+      --host 127.0.0.1 --port ${PORT}
+      -ngl 999
+      --model /models/nomic-embed-text.gguf
+      --embeddings --pooling mean
+      --ctx-size 8192
+      --no-webui
+    ttl: 3600
+
+groups:
+  # One big model at a time; loading one evicts the previous (NVMe reload is
+  # seconds). The persistent embed group survives swaps.
+  "big":
+    swap: true
+    exclusive: true
+    members:
+      - "qwen3.6-27b"
+      - "qwen3.6-35b-a3b"
+      - "qwen3-coder-30b"
+      - "devstral-24b"
+      - "gemma4-31b-qat"
+      - "deckard-heretic"
+      - "qwen2.5-coder-7b"
+      - "fast-3b"
+  "embed":
+    swap: false
+    exclusive: false
+    persistent: true
+    members:
+      - "nomic-embed"

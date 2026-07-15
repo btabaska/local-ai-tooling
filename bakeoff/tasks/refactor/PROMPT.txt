@@ -1,0 +1,4 @@
+This project has failing tests: some existing code has bugs, and one module
+is missing entirely. Investigate the test suite, fix the bugs, and implement
+whatever is missing so that ALL tests pass. Existing passing behavior must
+not regress. Do not modify the tests.

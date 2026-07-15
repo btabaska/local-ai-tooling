@@ -1,0 +1,23 @@
+# fleet-mcp.service — read-only fleet-inspection MCP server (ai-01).
+# Install: sudo cp ops/fleet-mcp.service /etc/systemd/system/ &&
+#          sudo systemctl daemon-reload && sudo systemctl enable --now fleet-mcp
+# Serves streamable-http MCP on :8765/mcp (Trusted-VLAN only via rig UFW).
+[Unit]
+Description=fleet-mcp read-only homelab inspection tools (MCP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=btabaska
+Group=btabaska
+EnvironmentFile=-/home/btabaska/.config/fleet-mcp/env
+ExecStart=/opt/llm/fleet-venv/bin/python /home/btabaska/Documents/GitHub/local-ai-tooling/ops/fleet_mcp.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

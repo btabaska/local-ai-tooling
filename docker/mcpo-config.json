@@ -1,5 +1,5 @@
 {
-  "//": "docker/mcpo-config.json — EXPANDED shared tool host for Open WebUI.",
+  "//": "docker/mcpo-config.json \u2014 EXPANDED shared tool host for Open WebUI.",
   "//2": "mcpo bridges stdio MCP servers to OpenAPI so Open WebUI can call them. Each is served at its",
   "//3": "own subpath, e.g. http://mcpo:8000/serena , /fetch , /time . Browse all at :8000/docs.",
   "//4": "Add to Open WebUI: Admin -> Settings -> External Tools -> + -> Type OpenAPI, URL http://mcpo:8000/<name>.",
@@ -9,16 +9,24 @@
   "mcpServers": {
     "time": {
       "command": "uvx",
-      "args": ["mcp-server-time", "--local-timezone=America/New_York"]
+      "args": [
+        "mcp-server-time",
+        "--local-timezone=America/New_York"
+      ]
     },
     "fetch": {
       "command": "uvx",
-      "args": ["mcp-server-fetch"]
+      "args": [
+        "mcp-server-fetch"
+      ]
     },
     "sequential-thinking": {
       "//": "Gives chat models a scratchpad for multi-step reasoning.",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
     },
     "context7": {
       "//": "Up-to-date library docs, same as in OpenCode.",
@@ -29,11 +37,20 @@
       "//": "Semantic code intel for chat. Default project /repos/app; all repos mounted under /repos.",
       "command": "uvx",
       "args": [
-        "--from", "git+https://github.com/oraios/serena",
-        "serena", "start-mcp-server",
-        "--context", "ide-assistant",
-        "--project", "/repos/app"
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--project",
+        "/repos/app"
       ]
+    },
+    "fleet": {
+      "//": "ai-01 read-only fleet-inspection tools (fleet-mcp.service on the rig host). Same tools the ollmcp ops agent uses.",
+      "type": "streamable-http",
+      "url": "http://host.docker.internal:8765/mcp"
     }
   }
 }

@@ -1,53 +1,54 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
-    "ollama": {
+    "litellm": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Ollama (rig)",
+      "name": "Homelab AI (LiteLLM on rig)",
       "options": {
-        "baseURL": "http://cachybox.local:11434/v1"
+        "baseURL": "https://llm.tabaska.us/v1",
+        "apiKey": "{env:LITELLM_API_KEY}"
       },
       "models": {
-        "qwen3.6:27b": {
-          "name": "Qwen3.6 27B — DEFAULT driver (flagship-level coding, dense, 256K)",
-          "tools": true
+        "coder": {
+          "name": "coder - Qwen3.6 35B-A3B MoE (default; ai-01 bake-off winner)",
+          "tools": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
         },
-        "qwen3.6:35b-a3b": {
-          "name": "Qwen3.6 35B-A3B — speed/context option (MoE ~3B active, fast, VRAM-lean)",
-          "tools": true
+        "coder-strong": {
+          "name": "coder-strong - Qwen3.6 27B dense (long/hard tasks)",
+          "tools": true,
+          "limit": {
+            "context": 32768,
+            "output": 8192
+          }
         },
-        "devstral:24b": {
-          "name": "Devstral 24B — agentic alternative (dense, clean multi-file diffs)",
-          "tools": true
+        "fast": {
+          "name": "fast - Qwen2.5-Coder 7B (quick/cheap)",
+          "tools": true,
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          }
         },
-        "code:opencode": {
-          "name": "Qwen3-Coder 64k — dedicated coder distil (older gen, still solid)",
-          "tools": true
-        },
-        "gemma4:31b-it-qat": {
-          "name": "Gemma 4 31B — you wanted to test this (chat/plan)",
-          "tools": true
-        },
-        "gemma4-code:64k": {
-          "name": "Gemma 4 31B @ 64k — test it as a coding driver",
-          "tools": true
-        },
-        "tag:fast": {
-          "name": "tag:fast — tiny utility",
+        "utility": {
+          "name": "utility - Llama3.2 3B (titles/tags)",
           "tools": false
         }
       }
     }
   },
-  "model": "ollama/qwen3.6:27b",
-  "small_model": "ollama/tag:fast",
+  "model": "litellm/coder",
+  "small_model": "litellm/utility",
   "instructions": [
     "~/.config/opencode/AGENTS.md"
   ],
   "agent": {
     "build": {
       "mode": "primary",
-      "model": "ollama/qwen3.6:27b",
+      "model": "litellm/coder",
       "temperature": 0.1,
       "permission": {
         "edit": "allow",
@@ -62,7 +63,7 @@
     },
     "plan": {
       "mode": "primary",
-      "model": "ollama/code:opencode",
+      "model": "litellm/coder-strong",
       "temperature": 0.1,
       "permission": {
         "edit": "deny",
@@ -71,6 +72,11 @@
     }
   },
   "mcp": {
+    "context7": {
+      "type": "remote",
+      "enabled": true,
+      "url": "https://mcp.context7.com/mcp"
+    },
     "serena": {
       "type": "local",
       "enabled": true,
@@ -88,11 +94,6 @@
       "environment": {
         "PYTHONUNBUFFERED": "1"
       }
-    },
-    "context7": {
-      "type": "remote",
-      "enabled": true,
-      "url": "https://mcp.context7.com/mcp"
     }
   },
   "tools": {

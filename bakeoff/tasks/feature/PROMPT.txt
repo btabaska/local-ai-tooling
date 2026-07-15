@@ -1,0 +1,6 @@
+This project needs a new discounts feature. The tests in test_discounts.py
+describe it: an inventory/discounts.py module with percent_off, bulk_discount
+and best_discount, and a Store.checkout_total(discounts=...) method that
+applies the best discount to the store total. Implement the feature so ALL
+tests pass (the existing test_store.py must keep passing). Do not modify the
+tests.

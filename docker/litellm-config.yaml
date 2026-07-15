@@ -1,52 +1,74 @@
 # ── docker/litellm-config.yaml ───────────────────────────────────────────────
-# LiteLLM = your single, stable, authenticated front door to Ollama.
+# LiteLLM = the single, stable, AUTHENTICATED front door to the AI stack.
 #
-# The whole point: `model_name` is the PUBLIC name every tool/script uses. The
-# `litellm_params.model` underneath can change whenever you swap models — clients never
-# have to be reconfigured. Add cloud models here later (Claude, GPT, etc.) and they show up
-# on the same endpoint with the same auth. This directly serves your "this will change over
-# time" requirement.
+# `model_name` is the PUBLIC alias every tool/script uses; the model underneath
+# can change without touching any client. As of ai-01 (2026-07-14) everything
+# routes to llama-swap (llama.cpp llama-server, on-demand load/unload) —
+# native Ollama is demoted to a compat shim for HA Assist + Obsidian only and
+# is NOT referenced here.
 #
-# `ollama_chat/<name>` (not `ollama/`) routes to Ollama's /api/chat — LiteLLM recommends it
-# for better multi-turn + tool-calling behavior.
-# api_base uses host.docker.internal so the container reaches Ollama running natively on the host.
+# llama-swap is reached container-to-container (http://llama-swap:8080/v1,
+# same compose network). It serves an OpenAI-compatible API; `openai/<name>`
+# routes through LiteLLM's OpenAI adapter. api_key is a placeholder (llama-swap
+# is unauthenticated inside the compose network / LAN firewall).
 
 model_list:
+  # ---- Coding / agentic ----
+  # Bake-off winner 2026-07-15 (see bakeoff/results/results.jsonl):
+  # qwen3.6-35b-a3b — 3/3 tasks, 0 malformed tool calls, fewest turns,
+  # 73-126 tok/s (vs 27b dense at 23-31 tok/s). 27b kept as coder-strong for
+  # long/hard runs (community consensus pick for multi-hour reliability).
+  - model_name: coder
+    litellm_params: &coder
+      model: openai/qwen3.6-35b-a3b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+  # legacy alias, same target — existing clients keep working
+  - model_name: code
+    litellm_params: *coder
+
+  # ---- Strong/slow coder for long or gnarly tasks ----
+  - model_name: coder-strong
+    litellm_params:
+      model: openai/qwen3.6-27b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
   # ---- General chat (default) ----
   - model_name: chat
     litellm_params:
-      model: ollama_chat/gemma4:31b-it-qat
-      api_base: http://host.docker.internal:11434
+      model: openai/gemma4-31b-qat
+      api_base: http://llama-swap:8080/v1
+      api_key: none
 
   # ---- Creative / uncensored chat ----
   - model_name: chat-creative
     litellm_params:
-      model: ollama_chat/deckard-heretic:128k
-      api_base: http://host.docker.internal:11434
+      model: openai/deckard-heretic
+      api_base: http://llama-swap:8080/v1
+      api_key: none
 
-  # ---- Coding / agentic (64k ctx variant built by 03-model-variants.sh) ----
-  - model_name: code
+  # ---- Fast 7B: autocomplete / ops-agent inner loop / cheap tool routing ----
+  - model_name: fast
     litellm_params:
-      model: ollama_chat/code:opencode
-      api_base: http://host.docker.internal:11434
+      model: openai/qwen2.5-coder-7b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
 
-  # ---- Fast utility: tagging, titles, classification ----
+  # ---- Tiny utility: tagging, titles, classification (temp 0 baked) ----
   - model_name: utility
     litellm_params:
-      model: ollama_chat/tag:fast
-      api_base: http://host.docker.internal:11434
+      model: openai/fast-3b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
 
   # ---- Embeddings (RAG, semantic search) ----
   - model_name: embed
     litellm_params:
-      model: ollama/nomic-embed-text
-      api_base: http://host.docker.internal:11434
+      model: openai/nomic-embed
+      api_base: http://llama-swap:8080/v1
+      api_key: none
 
-  # ---- OPTIONAL reliable coding fallback (uncomment after: ollama pull devstral:24b) ----
-  # - model_name: code-fallback
-  #   litellm_params:
-  #     model: ollama_chat/devstral:24b
-  #     api_base: http://host.docker.internal:11434
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
@@ -54,10 +76,8 @@ general_settings:
 
 litellm_settings:
   drop_params: true          # silently drop provider-unsupported params instead of erroring
-  # request_timeout: 600     # local big models can be slow on first token; raise if needed
+  request_timeout: 600       # cold model load + long agentic gens; llama-swap queues swaps
 
 router_settings:
   routing_strategy: simple-shuffle
-  # If `code` ever fails (e.g. a bad tool-call), fall back automatically:
-  # fallbacks: [{"code": ["code-fallback"]}]
   num_retries: 2

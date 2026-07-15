@@ -95,22 +95,26 @@ models:
       --temp 0
     ttl: 300
 
-  # ---- Embeddings (persistent — coexists with any big model) ----
+  # ---- Embeddings (persistent, CPU — never contends with big models/games) ----
   # Qwen3-Embedding-0.6B replaced nomic 2026-07-15: nomic's 2048-token trained
-  # ctx rejected big markdown-header chunks (OWUI RAG sync failures); this is
-  # 8k-native, top-MTEB, ~1GB VRAM. NOTE: needs --pooling last (Qwen3 style),
-  # and big batch sizes (llama-server default 512-token ubatch rejects long
-  # inputs). No content/query prefixes (those were nomic-specific).
+  # ctx rejected big markdown-header chunks (OWUI RAG sync failures). Needs
+  # --pooling last (Qwen3 style); no content/query prefixes (nomic-specific).
+  # CPU on purpose (-ngl 0): at -ub 8192 on GPU the batch compute buffers ate
+  # ~6.5GB and the 19.7GB coder no longer fit. A 0.6B embedder on 20 CPU
+  # threads is plenty for query-time RAG + the nightly wiki sync, and the GPU
+  # stays fully free. Encoder inputs must fit ONE ubatch -> 4096 covers the
+  # largest observed wiki chunk (3136 tokens); bigger chunks fail that file
+  # only (rare).
   "qwen3-embed":
-    name: "Qwen3-Embedding-0.6B (RAG embeddings, 8k ctx)"
+    name: "Qwen3-Embedding-0.6B (RAG embeddings, CPU)"
     cmd: |
       /app/llama-server
       --host 127.0.0.1 --port ${PORT}
-      -ngl 999
+      -ngl 0 --threads 10
       --model /models/Qwen3-Embedding-0.6B-Q8_0.gguf
       --embeddings --pooling last
-      --ctx-size 8192
-      --batch-size 8192 --ubatch-size 8192
+      --ctx-size 4096
+      --batch-size 4096 --ubatch-size 4096
       --no-webui
     ttl: 3600
 

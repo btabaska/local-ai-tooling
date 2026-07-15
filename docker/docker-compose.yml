@@ -82,6 +82,9 @@ services:
       RAG_OPENAI_API_KEY: ${OPENWEBUI_LITELLM_KEY}
       RAG_EMBEDDING_MODEL: embed
       RAG_EMBEDDING_BATCH_SIZE: "10"
+      # Qwen3-Embedding asymmetric retrieval: queries carry the instruct prefix,
+      # documents do not (safe to change without re-embedding the docs):
+      RAG_EMBEDDING_QUERY_PREFIX: "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: "
       # Stable secret so saved tool/OAuth creds survive restarts:
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       # External URL Open WebUI advertises (absolute links, login redirects, PWA).

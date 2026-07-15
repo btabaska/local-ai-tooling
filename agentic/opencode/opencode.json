@@ -10,18 +10,18 @@
       },
       "models": {
         "coder": {
-          "name": "coder - Qwen3.6 35B-A3B MoE (default; ai-01 bake-off winner)",
+          "name": "coder - Qwen3.6 35B-A3B MoE (default; 131k ctx)",
           "tools": true,
           "limit": {
-            "context": 32768,
+            "context": 131072,
             "output": 8192
           }
         },
         "coder-strong": {
-          "name": "coder-strong - Qwen3.6 27B dense (long/hard tasks)",
+          "name": "coder-strong - Qwen3.6 27B MTP (~50 t/s, 98k ctx)",
           "tools": true,
           "limit": {
-            "context": 32768,
+            "context": 98304,
             "output": 8192
           }
         },

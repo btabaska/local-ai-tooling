@@ -27,12 +27,23 @@ macros:
 
 models:
   # ---- Coding / agentic candidates (bake-off pool, ai-01) ----
+  # MTP self-speculative decoding (promoted 2026-07-15 after A/B bench):
+  # 34.5 -> 50 tok/s (1.46x) with --spec-draft-n-max 2; n-max 3 was slower.
+  # The #23658 2048-aligned-ctx acceptance bug did NOT manifest on b9994
+  # (aligned == non-aligned in the bench), so ctx stays a round 98304
+  # (21.5->22.2 GiB with MTP; ceiling measured: 131072 = 22.7 GiB, 163840 =
+  # 24.0 GiB hard edge). Caveats: --parallel 1 is REQUIRED with MTP; do NOT
+  # send images through this entry (llama.cpp #23233 crash); q8_0 KV ran the
+  # bench clean but one upstream report crashed quantized KV + MTP after
+  # ~20 min — if it ever wedges, drop the two cache-type flags first.
   "qwen3.6-27b":
-    name: "Qwen3.6 27B (dense UD-Q4_K_XL 17.6G, mainline HF GGUF)"
+    name: "Qwen3.6 27B MTP (dense, spec-decode ~50 t/s, 98k ctx)"
     cmd: |
       ${srv}
-      --model /models/Qwen3.6-27B-UD-Q4_K_XL.gguf
-      --ctx-size 32768
+      --model /models/Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf
+      --ctx-size 98304
+      --spec-type draft-mtp --spec-draft-n-max 2
+      --parallel 1
     ttl: 120
 
   "qwen3.6-35b-a3b":
@@ -40,7 +51,7 @@ models:
     cmd: |
       ${srv}
       --model /models/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
-      --ctx-size 32768
+      --ctx-size 131072
     ttl: 120
 
   "qwen3-coder-30b":

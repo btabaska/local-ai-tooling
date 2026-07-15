@@ -1,5 +1,22 @@
 # Local AI Stack — CachyOS (3090 Ti) → your whole network
 
+> **⚠ ai-01 REBUILD (2026-07-15): the model server is now llama-swap +
+> llama.cpp (`docker/llama-swap-config.yaml`), NOT native Ollama.** Ollama
+> remains only as a 3-model compat shim on :11434 for HA Assist + Obsidian
+> (llama3.2:3b, tag:fast, nomic-embed-text) — do not pull big models into it.
+> LiteLLM (:4000) stays the authenticated front door; public aliases:
+> `coder` (qwen3.6-35b-a3b, bake-off winner) · `coder-strong` (qwen3.6-27b) ·
+> `chat` · `chat-creative` · `fast` · `utility` · `embed` (Qwen3-Embedding).
+> GPU yields to gaming via llama-swap ttl idle-unload + the Apollo
+> session-start hook (`scripts/gpu-yield-unload.sh`, 182 ms measured).
+> Model files: `/opt/llm/models` (outside /home — restic must not back up
+> weights). Ops agent + read-only fleet tools: `ops/`. Bake-off harness +
+> results: `bakeoff/`. Full shipped design + how-to-use:
+> **https://wiki.tabaska.us/architecture/local-ai-build/** and
+> `HANDOFF-ai-01.md`. Sections below describing native-Ollama tuning
+> (01-ollama-tune.sh, 03-model-variants.sh, :11434 clients) are KEPT for the
+> shim's sake but describe the LEGACY path.
+
 A network-wide, self-hosted AI backend built on your existing Ollama install. One box serves
 models and tools; every other machine (chat UI, coding CLI, Obsidian, scripts) points at it.
 

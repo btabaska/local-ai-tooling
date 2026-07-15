@@ -65,7 +65,7 @@ model_list:
   # ---- Embeddings (RAG, semantic search) ----
   - model_name: embed
     litellm_params:
-      model: openai/nomic-embed
+      model: openai/qwen3-embed
       api_base: http://llama-swap:8080/v1
       api_key: none
 

@@ -95,16 +95,22 @@ models:
       --temp 0
     ttl: 300
 
-  # ---- Embeddings (persistent — 262 MB, coexists with any big model) ----
-  "nomic-embed":
-    name: "nomic-embed-text (RAG embeddings)"
+  # ---- Embeddings (persistent — coexists with any big model) ----
+  # Qwen3-Embedding-0.6B replaced nomic 2026-07-15: nomic's 2048-token trained
+  # ctx rejected big markdown-header chunks (OWUI RAG sync failures); this is
+  # 8k-native, top-MTEB, ~1GB VRAM. NOTE: needs --pooling last (Qwen3 style),
+  # and big batch sizes (llama-server default 512-token ubatch rejects long
+  # inputs). No content/query prefixes (those were nomic-specific).
+  "qwen3-embed":
+    name: "Qwen3-Embedding-0.6B (RAG embeddings, 8k ctx)"
     cmd: |
       /app/llama-server
       --host 127.0.0.1 --port ${PORT}
       -ngl 999
-      --model /models/nomic-embed-text.gguf
-      --embeddings --pooling mean
+      --model /models/Qwen3-Embedding-0.6B-Q8_0.gguf
+      --embeddings --pooling last
       --ctx-size 8192
+      --batch-size 8192 --ubatch-size 8192
       --no-webui
     ttl: 3600
 
@@ -128,4 +134,4 @@ groups:
     exclusive: false
     persistent: true
     members:
-      - "nomic-embed"
+      - "qwen3-embed"

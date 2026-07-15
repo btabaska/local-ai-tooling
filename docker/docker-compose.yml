@@ -81,9 +81,6 @@ services:
       RAG_OPENAI_API_BASE_URL: http://litellm:4000/v1
       RAG_OPENAI_API_KEY: ${OPENWEBUI_LITELLM_KEY}
       RAG_EMBEDDING_MODEL: embed
-      # nomic-embed-text requires task prefixes for docs vs queries:
-      RAG_EMBEDDING_CONTENT_PREFIX: "search_document: "
-      RAG_EMBEDDING_QUERY_PREFIX: "search_query: "
       RAG_EMBEDDING_BATCH_SIZE: "10"
       # Stable secret so saved tool/OAuth creds survive restarts:
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}

@@ -5,12 +5,21 @@
 # GPU-yield hook). Web UI + activity: http://rig:9292/ui
 #
 # GPU policy (game-13 successor): big models swap each other (one at a time),
-# unload after 120s idle; the tiny embedder is persistent (262 MB). A game
+# unload after 120s idle; the embedder is persistent and pinned to CPU. A game
 # session force-unloads EVERYTHING via the admin endpoint — see
 # scripts/gpu-yield-unload.sh and the Apollo global_prep_cmd.
 #
-# VRAM ground truth measured on THIS card 2026-07-14 (24564 MiB total):
-# see ctx-size comments per model. q8_0 KV + flash-attn keeps KV ~half of f16.
+# Sampling defaults per model = the HF model-card recommended settings
+# (2026-07-16 sweep). Clients can still override per request.
+# ctx-size per model = MEASURED max that loads fully on GPU (bake-off
+# 2026-07-16, q8_0 KV + flash-attn, embedder CPU-pinned, desktop ~1 GiB):
+#   qwen3.6-27b MTP 114688 (23.4G; 131072 OOM)   35b-a3b 262144 = native max (23.3G)
+#   qwen3-coder-30b 98304 (23.4G; 114688 OOM)    devstral 98304 (23.7G; 114688 OOM)
+#   gemma4-qat 73728 (23.7G; 81920 OOM)          deckard 49152 (23.8G; 65536 OOM)
+#   qwen2.5-coder 32768 = native max             fast-3b 131072 = native max
+# These are edge fits (<1 GiB headroom) — the gaming force-unload hook is the
+# safety valve, and any big VRAM desktop use (game client, big browser WebGL)
+# can OOM a fresh load at these sizes.
 
 healthCheckTimeout: 300
 startPort: 10001
@@ -26,98 +35,109 @@ macros:
     --no-webui
 
 models:
-  # ---- Coding / agentic candidates (bake-off pool, ai-01) ----
+  # ---- Coding / agentic (bake-off pool, ai-01) ----
   # MTP self-speculative decoding (promoted 2026-07-15 after A/B bench):
   # 34.5 -> 50 tok/s (1.46x) with --spec-draft-n-max 2; n-max 3 was slower.
-  # The #23658 2048-aligned-ctx acceptance bug did NOT manifest on b9994
-  # (aligned == non-aligned in the bench), so ctx stays a round 98304
-  # (21.5->22.2 GiB with MTP; ceiling measured: 131072 = 22.7 GiB, 163840 =
-  # 24.0 GiB hard edge). Caveats: --parallel 1 is REQUIRED with MTP; do NOT
-  # send images through this entry (llama.cpp #23233 crash); q8_0 KV ran the
-  # bench clean but one upstream report crashed quantized KV + MTP after
-  # ~20 min — if it ever wedges, drop the two cache-type flags first.
+  # Caveats: --parallel 1 is REQUIRED with MTP; do NOT send images through
+  # this entry (llama.cpp #23233 crash); if quantized-KV + MTP ever wedges,
+  # drop the two cache-type flags first.
+  # HF card (thinking, precise coding): temp 0.6 top_p 0.95 top_k 20 min_p 0.
   "qwen3.6-27b":
-    name: "Qwen3.6 27B MTP (dense, spec-decode ~50 t/s, 98k ctx)"
+    name: "Qwen3.6 27B MTP (dense, spec-decode ~50 t/s)"
     cmd: |
       ${srv}
       --model /models/Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf
-      --ctx-size 98304
+      --ctx-size 114688
       --spec-type draft-mtp --spec-draft-n-max 2
       --parallel 1
+      --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 
+  # HF card (thinking, precise coding): temp 0.6 top_p 0.95 top_k 20 min_p 0.
   "qwen3.6-35b-a3b":
     name: "Qwen3.6 35B-A3B (MoE Q4, 23G weights — VRAM-tight)"
     cmd: |
       ${srv}
       --model /models/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
-      --ctx-size 131072
+      --ctx-size 262144
+      --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 
+  # HF card: temp 0.7 top_p 0.8 top_k 20 repeat_penalty 1.05.
   "qwen3-coder-30b":
     name: "Qwen3 Coder 30B-A3B (MoE Q4, 18G weights)"
     cmd: |
       ${srv}
       --model /models/qwen3-coder-30b.gguf
-      --ctx-size 65536
-      --temp 0.1 --top-p 0.8
+      --ctx-size 98304
+      --temp 0.7 --top-p 0.8 --top-k 20 --repeat-penalty 1.05
     ttl: 120
 
+  # Mistral/unsloth guidance: temp 0.15 (agentic coding). n_ctx_train 131072.
   "devstral-24b":
     name: "Devstral Small 24B (dense Q4, 14G weights)"
     cmd: |
       ${srv}
       --model /models/devstral-24b.gguf
-      --ctx-size 65536
+      --ctx-size 98304
+      --temp 0.15
     ttl: 120
 
   # ---- Chat ----
+  # Gemma 4 official: temp 1.0 top_p 0.95 top_k 64. n_ctx_train 262144 (SWA).
   "gemma4-31b-qat":
     name: "Gemma 4 31B IT QAT (17G weights)"
     cmd: |
       ${srv}
       --model /models/gemma4-31b-qat.gguf
-      --ctx-size 16384
+      --ctx-size 73728
+      --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 
+  # DavidAU card defers to Gemma 4 org settings: temp 1.0 top_p 0.95 top_k 64.
   "deckard-heretic":
     name: "DECKARD-HERETIC 31B Q6 (creative, 20G weights — VRAM-tight)"
     cmd: |
       ${srv}
       --model /models/deckard-heretic.gguf
-      --ctx-size 8192
+      --ctx-size 49152
+      --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 
   # ---- Small / utility ----
+  # Qwen2.5 generation_config: temp 0.7 top_p 0.8 top_k 20 rep 1.05.
+  # Native n_ctx_train is 32768 (131k only via YaRN, degrades short-ctx).
   "qwen2.5-coder-7b":
     name: "Qwen2.5 Coder 7B (autocomplete / cheap tool loop)"
     cmd: |
       ${srv}
       --model /models/qwen2.5-coder-7b.gguf
       --ctx-size 32768
+      --temp 0.7 --top-p 0.8 --top-k 20 --repeat-penalty 1.05
     ttl: 300
 
+  # temp 0 on purpose (deterministic tagging/titles). n_ctx_train 131072.
   "fast-3b":
     name: "Llama 3.2 3B (tagging/titles/classification, temp 0)"
     cmd: |
       ${srv}
       --model /models/llama3.2-3b.gguf
-      --ctx-size 8192
+      --ctx-size 131072
       --temp 0
     ttl: 300
 
   # ---- Embeddings (persistent, CPU — never contends with big models/games) ----
-  # Qwen3-Embedding-0.6B replaced nomic 2026-07-15: nomic's 2048-token trained
-  # ctx rejected big markdown-header chunks (OWUI RAG sync failures). Needs
-  # --pooling last (Qwen3 style); no content/query prefixes (nomic-specific).
-  # CPU on purpose (-ngl 0): at -ub 8192 on GPU the batch compute buffers ate
-  # ~6.5GB and the 19.7GB coder no longer fit. A 0.6B embedder on 20 CPU
-  # threads is plenty for query-time RAG + the nightly wiki sync, and the GPU
-  # stays fully free. Encoder inputs must fit ONE ubatch -> 4096 covers the
-  # largest observed wiki chunk (3136 tokens); bigger chunks fail that file
-  # only (rare).
+  # Qwen3-Embedding-0.6B replaced nomic 2026-07-15 (nomic's 2048 trained ctx
+  # rejected big markdown-header chunks). --pooling last (Qwen3 style).
+  # CUDA_VISIBLE_DEVICES="" pins it truly off-GPU: with -ngl 0 alone the CUDA
+  # backend still allocated ~2.8 GiB of batch compute buffers on the card
+  # (observed 2026-07-16), which silently shrank every big model's ctx budget.
+  # Encoder inputs must fit ONE ubatch -> 4096 covers the largest observed
+  # wiki chunk (3136 tokens); bigger chunks fail that file only (rare).
   "qwen3-embed":
     name: "Qwen3-Embedding-0.6B (RAG embeddings, CPU)"
+    env:
+      - "CUDA_VISIBLE_DEVICES="
     cmd: |
       /app/llama-server
       --host 127.0.0.1 --port ${PORT}

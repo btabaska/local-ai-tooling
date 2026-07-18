@@ -100,6 +100,20 @@ env/compose alone cannot express them (neither app supports it).
 7. **Lumiverse image import** wants the bare node map (unwrap `.prompt` from the
    `*.api.json` files) and fetches the target `/object_info` live at import time.
 
+8. **Agent wiring in Marinara** (found 2026-07-18, illustrator 405): an agent row has
+   TWO connection fields —  = its TEXT LLM,  =
+   its image connection. Setting the image connection into  makes the
+   agent POST chat/completions at ComfyUI → "OpenAI API error 405: Method Not Allowed".
+   Illustrator agent fixed to connectionId=LiteLLM Creative + imageConnectionId=Flux;
+   agents also only run when the CHAT opts in (metadata.enableAgents=true +
+   activeAgentIds contains the agent type; PATCH /api/chats/:id/metadata).
+9. **No vision on the creative trio**: attaching an image to a chat fails with
+   LiteLLM 500 "image input is not supported … provide the mmproj" — the Mistral-Small
+   3.2 GGUFs are loaded text-only (no mmproj file on disk). Enabling vision = download
+   the Mistral-Small-3.2 mmproj (~1 GB, one file serves all 3 finetunes) + add
+   --mmproj to each model in llama-swap-config.yaml + REDUCE ctx from 73728 (measured
+   VRAM ceiling — the vision tower needs ~1-1.5 GiB). Deliberate tradeoff, not done.
+
 ## Known gaps (deliberate)
 
 - **Civitai token**: only base HF checkpoints are installed; premium/NSFW retrains need a

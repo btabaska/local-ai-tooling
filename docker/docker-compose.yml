@@ -145,7 +145,88 @@ services:
       - ./llama-swap-config.yaml:/app/config.yaml:ro
       - /opt/llm/models:/models:ro
 
+  # ---- Lumiverse: creative/RP chat frontend (added 2026-07-18) -----------------
+  # Self-hosted AI roleplay UI (prolix-oc/Lumiverse, TS+Bun). Rides LiteLLM like OWUI,
+  # but the OpenAI-compatible connection is created IN-APP (Connections -> Custom):
+  # API URL http://litellm:4000/v1, key = LUMIVERSE_LITELLM_KEY (LiteLLM virtual key
+  # scoped to cydonia/dolphin-venice/goetia — the only model restriction, since the app
+  # has no allowlist), model name typed per connection. HTTPS via the mini Caddy
+  # (lumiverse.tabaska.us -> rig:3001). Lumiverse ships no semver IMAGE tags (only
+  # :latest / :staging-<sha>), so we pin :latest BY DIGEST (immutable) — resolved
+  # 2026-07-18, past the v1.0.0 git release that patches the CVE-2026-44449 RCE cluster.
+  # Re-resolve + bump the digest when updating. LAN/tailnet-only, never internet-exposed.
+  lumiverse:
+    image: ghcr.io/prolix-oc/lumiverse@sha256:baa8db4ed9e41b1db205bf48a77b4ff445a52585bbe698859253803f7f6b1991
+    container_name: lumiverse
+    restart: unless-stopped
+    ports:
+      - "3001:7860"
+    environment:
+      OWNER_USERNAME: admin
+      OWNER_PASSWORD: ${LUMIVERSE_OWNER_PASSWORD}
+      PORT: "7860"
+      # Behind the mini Caddy: lock CORS to the real origin instead of TRUST_ANY_ORIGIN.
+      TRUST_ANY_ORIGIN: "false"
+      TRUSTED_ORIGINS: https://lumiverse.tabaska.us
+    volumes:
+      # data/lumiverse.identity in here is the master key for stored secrets — back it up.
+      - lumiverse-data:/app/data
+
+  # ---- Marinara-Engine: creative/RP chat + game engine (added 2026-07-18) -------
+  # Pasta-Devs/Marinara-Engine (ALPHA, AGPL-3.0). Reaches LiteLLM at http://litellm:4000/v1
+  # (needs PROVIDER_LOCAL_URLS_ENABLED=true — it's a private, non-loopback URL). The
+  # OpenAI-compatible connection is created in-app with MARINARA_LITELLM_KEY (scoped to the
+  # 3 RP models). HARDENING: behind a Docker reverse proxy, the default BYPASS_AUTH_DOCKER
+  # would let forwarded traffic SKIP Basic Auth -> REQUIRE_AUTH_FOR_DOCKER_PROXY=true forces
+  # it. Pinned to GHCR image 1.5.0 (the image semver line differs from the repo's git
+  # tags); auto-update off; HTTPS via mini Caddy (marinara.tabaska.us -> rig:3002).
+  marinara:
+    image: ghcr.io/pasta-devs/marinara-engine:1.5.0
+    container_name: marinara
+    init: true
+    restart: unless-stopped
+    ports:
+      - "3002:7860"
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /app/data
+      FILE_STORAGE_DIR: /app/data/storage
+      MARINARA_DOCKER: "true"
+      HOST: 0.0.0.0
+      PORT: "7860"
+      AUTO_CREATE_DEFAULT_CONNECTION: "true"
+      # Pin the image; disable in-app/git update paths for a managed deploy.
+      AUTO_UPDATE_ENABLED: "false"
+      UPDATES_APPLY_ENABLED: "false"
+      UPDATES_ALLOW_REMOTE_APPLY: "false"
+      # Allow reaching the internal LiteLLM (private, non-loopback) base URL.
+      PROVIDER_LOCAL_URLS_ENABLED: "true"
+      # Auth: THE ENFORCING GATE IS THE MINI CADDY (basic_auth on marinara.tabaska.us).
+      # Marinara's own IP-based Basic Auth is structurally ineffective here: behind
+      # Docker's userland-proxy the app only ever sees a trusted private/Docker source
+      # (gateway 10.201.1.1 or a 10.201.1.x container IP), so it treats ALL callers as
+      # trusted and skips auth — verified 2026-07-18 that no combination of
+      # BASIC_AUTH_*, BYPASS_AUTH_DOCKER=false, BYPASS_AUTH_TAILSCALE=false, or
+      # REQUIRE_AUTH_FOR_DOCKER_PROXY closes it (it cannot see the real client IP).
+      # These vars are kept as defense-in-depth (they DO gate if userland-proxy is ever
+      # disabled and real client IPs become visible). Loopback stays open for host tooling.
+      BASIC_AUTH_USER: ${MARINARA_BASIC_AUTH_USER}
+      BASIC_AUTH_PASS: ${MARINARA_BASIC_AUTH_PASS}
+      BASIC_AUTH_REALM: Marinara-Engine
+      BYPASS_AUTH_DOCKER: "false"
+      REQUIRE_AUTH_FOR_DOCKER_PROXY: "true"
+      BYPASS_AUTH_TAILSCALE: "false"
+      IP_ALLOWLIST_ENABLED: "false"
+      ADMIN_SECRET: ${MARINARA_ADMIN_SECRET}
+      ENCRYPTION_KEY: ${MARINARA_ENCRYPTION_KEY}
+      CSRF_TRUSTED_ORIGINS: https://marinara.tabaska.us
+      CORS_ORIGINS: https://marinara.tabaska.us
+    volumes:
+      - marinara-data:/app/data
+
 
 volumes:
   litellm_pgdata:
   open_webui_data:
+  lumiverse-data:
+  marinara-data:

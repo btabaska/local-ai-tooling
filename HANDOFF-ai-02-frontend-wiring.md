@@ -114,6 +114,19 @@ env/compose alone cannot express them (neither app supports it).
    --mmproj to each model in llama-swap-config.yaml + REDUCE ctx from 73728 (measured
    VRAM ceiling — the vision tower needs ~1-1.5 GiB). Deliberate tradeoff, not done.
 
+10. **Marinara placeholder whitelist** (found 2026-07-18, illustrator + NoobAI): the
+   in-app substitution (`generateComfyUI`) replaces ONLY `%prompt%`,
+   `%negative_prompt%`, `%width%`, `%height%`, `%seed%`, `%model%`,
+   `%reference_image%`. Any other token (`%sampler%`, `%steps%`, `%cfg%`,
+   `%scheduler%`, `%denoise%`) passes through raw and fails ComfyUI validation
+   (`value_not_in_list`). The NoobAI marinara template carried those extra tokens —
+   an in-app generation with it had NEVER actually worked (its connection `/test`
+   only probes `/system_stats`). Fixed by hard-coding steps=28 cfg=5.0
+   euler_ancestral/normal denoise=1.0 in
+   `comfyui-workflows/marinara/noobai-xl-anime.marinara.json` + reseed; verified
+   end-to-end via the illustrator (marinara_noobai render success). Keep new
+   Marinara templates to the whitelist.
+
 ## Known gaps (deliberate)
 
 - **Civitai token**: only base HF checkpoints are installed; premium/NSFW retrains need a

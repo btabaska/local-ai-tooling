@@ -1,5 +1,5 @@
 {
- "3":{"class_type":"KSampler","inputs":{"seed":"%seed%","steps":"%steps%","cfg":"%cfg%","sampler_name":"%sampler%","scheduler":"%scheduler%","denoise":"%denoise%","model":["4",0],"positive":["6",0],"negative":["7",0],"latent_image":["5",0]}},
+ "3":{"class_type":"KSampler","inputs":{"seed":"%seed%","steps":28,"cfg":5.0,"sampler_name":"euler_ancestral","scheduler":"normal","denoise":1.0,"model":["4",0],"positive":["6",0],"negative":["7",0],"latent_image":["5",0]}},
  "4":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"NoobAI-XL-v1.1.safetensors"}},
  "5":{"class_type":"EmptyLatentImage","inputs":{"width":"%width%","height":"%height%","batch_size":1}},
  "6":{"class_type":"CLIPTextEncode","inputs":{"text":"%prompt%","clip":["4",1]}},

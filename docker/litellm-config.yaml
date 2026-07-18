@@ -48,6 +48,26 @@ model_list:
       api_base: http://llama-swap:8080/v1
       api_key: none
 
+
+  # ---- Creative / roleplay (Mistral-Small-24B family) added 2026-07-18 ----
+  - model_name: cydonia
+    litellm_params:
+      model: openai/cydonia-24b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
+  - model_name: dolphin-venice
+    litellm_params:
+      model: openai/dolphin-venice-24b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
+  - model_name: goetia
+    litellm_params:
+      model: openai/goetia-24b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
   # ---- Fast 7B: autocomplete / ops-agent inner loop / cheap tool routing ----
   - model_name: fast
     litellm_params:

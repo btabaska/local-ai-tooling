@@ -149,6 +149,54 @@ models:
       --no-webui
     ttl: 3600
 
+  # ---- Creative / roleplay (Mistral Small 24B family, Mistral v7 "Tekken") ----
+  # Added 2026-07-18. All three are Mistral-Small-3.2-24B RP/creative models, Q5_K_M
+  # (~16.8G weights), Tekken chat template served via the embedded jinja template
+  # (--jinja is in ${srv}). DRY sampler on to curb long-chat repetition. ctx 65536 is
+  # a safe generous default for a Q5 24B (deckard 31B Q6 fit 49152); push higher after
+  # measuring per the bake-off convention if you want more.
+
+  # TheDrummer Cydonia 24B v4.3. Repo: TheDrummer/Cydonia-24B-v4.3-GGUF
+  # (file Cydonia-24B-v4zg-Q5_K_M.gguf). HF card specifies NO sampler -> Mistral-24B
+  # RP community defaults. n_ctx_train 131072. Optional <thinking> supported (unused).
+  "cydonia-24b":
+    name: "Cydonia 24B v4.3 (creative/RP, Mistral-Small-24B, 17G)"
+    cmd: |
+      ${srv}
+      --model /models/cydonia-24b.gguf
+      --ctx-size 65536
+      --temp 1.0 --top-p 0.95 --top-k 0 --min-p 0.05 --repeat-penalty 1.05
+      --dry-multiplier 0.8 --dry-base 1.75 --dry-allowed-length 2
+    ttl: 120
+
+  # Dolphin-Mistral 24B Venice Edition. Repo:
+  # bartowski/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-GGUF.
+  # Ships near-unaligned/uncensored: behavior is set by the SYSTEM PROMPT. HF card
+  # recommends temp 0.15 (factual/assistant use); raised to 0.7 for creative/RP intent
+  # here -- override per-request downward for factual tasks. n_ctx_train 131072.
+  "dolphin-venice-24b":
+    name: "Dolphin-Mistral 24B Venice (uncensored/steerable, 17G)"
+    cmd: |
+      ${srv}
+      --model /models/dolphin-venice-24b.gguf
+      --ctx-size 65536
+      --temp 0.7 --top-p 0.95 --top-k 0 --min-p 0.05 --repeat-penalty 1.05
+      --dry-multiplier 0.8 --dry-base 1.75 --dry-allowed-length 2
+    ttl: 120
+
+  # Goetia 24B v1.3 (DELLA merge of 33 Mistral-Small-3.2-24B RP tunes, dark/edgy RP).
+  # Repo: mradermacher/Goetia-24B-v1.3-GGUF (file Goetia-24B-v1.3.Q5_K_M.gguf). No card
+  # sampler -> Mistral-24B RP defaults; hot merge so temp kept <=1.0. n_ctx_train 131072.
+  "goetia-24b":
+    name: "Goetia 24B v1.3 (dark RP merge, Mistral-Small-24B, 17G)"
+    cmd: |
+      ${srv}
+      --model /models/goetia-24b.gguf
+      --ctx-size 65536
+      --temp 0.8 --top-p 0.95 --top-k 0 --min-p 0.05 --repeat-penalty 1.05
+      --dry-multiplier 0.8 --dry-base 1.75 --dry-allowed-length 2
+    ttl: 120
+
 groups:
   # One big model at a time; loading one evicts the previous (NVMe reload is
   # seconds). The persistent embed group survives swaps.
@@ -162,6 +210,9 @@ groups:
       - "devstral-24b"
       - "gemma4-31b-qat"
       - "deckard-heretic"
+      - "cydonia-24b"
+      - "dolphin-venice-24b"
+      - "goetia-24b"
       - "qwen2.5-coder-7b"
       - "fast-3b"
   "embed":

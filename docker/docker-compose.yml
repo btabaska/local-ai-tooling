@@ -225,6 +225,47 @@ services:
       - marinara-data:/app/data
 
 
+  # ---- ComfyUI: image-generation backend (rig GPU via CDI) — added 2026-07-18 ----
+  # RP image gen (Z-Image Turbo / NoobAI-XL anime / Flux.2 Klein), driven by Open WebUI,
+  # Lumiverse and Marinara. Shares the single 3090 Ti with the LLM stack via gpu-arbiter
+  # (take-turns: unload llama-swap before a gen, /free ComfyUI after). GPU via CDI like
+  # llama-swap (rig has no nvidia docker runtime). BASE_DIRECTORY=/basedir -> models in
+  # /opt/comfyui/models (outside /home, like /opt/llm). API + Manager UI on :8188.
+  comfyui:
+    image: mmartial/comfyui-nvidia-docker:latest
+    container_name: comfyui
+    restart: unless-stopped
+    ports:
+      - "8188:8188"
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      WANTED_UID: "1000"
+      WANTED_GID: "1000"
+      SECURITY_LEVEL: normal
+      BASE_DIRECTORY: /basedir
+      USE_UV: "true"
+    volumes:
+      - /opt/comfyui/run:/comfy/mnt
+      - /opt/comfyui:/basedir
+
+  # ---- gpu-arbiter: take-turns GPU sharing shim in front of ComfyUI --------------
+  # The 24GB card can't hold a 73k-ctx 24B LLM (~22.8G) AND an image model at once.
+  # This transparent reverse proxy force-unloads llama-swap on POST /prompt and /free's
+  # ComfyUI when its queue drains, so image gen and chat alternate cleanly. Frontends
+  # point their ComfyUI URL at this (:8189), NOT ComfyUI (:8188). Source: ./gpu-arbiter.py
+  gpu-arbiter:
+    image: python:3.12-slim
+    container_name: gpu-arbiter
+    restart: unless-stopped
+    depends_on:
+      - comfyui
+    ports:
+      - "8189:8189"
+    command: ["sh", "-c", "pip install --quiet --no-cache-dir aiohttp && exec python /app/gpu-arbiter.py"]
+    volumes:
+      - ./gpu-arbiter.py:/app/gpu-arbiter.py:ro
+
 volumes:
   litellm_pgdata:
   open_webui_data:

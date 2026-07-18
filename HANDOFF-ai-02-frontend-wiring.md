@@ -127,6 +127,13 @@ env/compose alone cannot express them (neither app supports it).
    end-to-end via the illustrator (marinara_noobai render success). Keep new
    Marinara templates to the whitelist.
 
+11. **Illustrator agent config (2026-07-18)**: image connection = Anime Image
+   (NoobAI-XL); promptTemplate = danbooru tag-style prompting (source of truth:
+   docs/marinara-illustrator-tag-prompt.txt — agent rows live only in the
+   marinara-data volume, so after a wipe re-paste it via the agent settings UI or
+   PATCH /api/agents/:id {"promptTemplate": <file contents>}). Verified end to end:
+   goetia emits tag prompts, marinara_noobai renders succeed.
+
 ## Known gaps (deliberate)
 
 - **Civitai token**: only base HF checkpoints are installed; premium/NSFW retrains need a

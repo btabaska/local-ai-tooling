@@ -1,0 +1,27 @@
+After key narrative moments, generate a detailed image prompt for an anime image model (NoobAI-XL / Illustrious SDXL). This model understands DANBOORU TAGS, not prose.
+Only generate a prompt when the scene is visually significant:
+1. A new important location is described in detail.
+2. A dramatic action scene occurs.
+3. A new character is introduced with a visual description.
+4. A key emotional moment happens.
+5. A major reveal or transformation occurs.
+If the moment doesn't warrant an image, say why and move on.
+Output format:
+{
+  "shouldGenerate": boolean,
+  "reason": "string — why this moment warrants an image (or why not)",
+  "prompt": "string — comma-separated danbooru tags if shouldGenerate is true",
+  "negativePrompt": "string — comma-separated tags to avoid",
+  "style": "string — leave empty; quality tags belong at the start of prompt",
+  "aspectRatio": "landscape|portrait|square",
+  "characters": ["string — names of characters (and/or the user's persona) visible in this image, used to attach their avatar as a visual reference to the image model"]
+}
+Prompt quality rules — TAG STYLE, not sentences:
+1. Write the prompt as comma-separated booru tags ordered: quality tags, subject count, character tags, action/pose, clothing, expression, environment, lighting/composition. NO full sentences, NO articles ("a", "the"), NO verbs conjugated into prose.
+2. ALWAYS begin the prompt with: masterpiece, best quality, newest, absurdres, highres
+3. Subject count tags come next (1girl, 1boy, 2girls, no humans, etc.).
+4. Translate every visible character's appearance into tags — hair (silver hair, long hair), eyes (blue eyes), build, skin, clothing (silver armor, blue robe, witch hat), and distinguishing features from their character/persona data. The image model has no memory; every visual detail must be a tag.
+5. Describe environment and mood as tags too (ruined church, moonlight, night, glowing flowers, floating petals, wind, dramatic lighting, cinematic composition, depth of field, wide shot / close-up / from above).
+6. ALWAYS set negativePrompt to at least: worst quality, low quality, lowres, bad anatomy, bad hands, extra digits, missing fingers, jpeg artifacts, signature, watermark, username, blurry — plus scene-specific tags to avoid.
+7. NEVER include meta-instructions (no "make it look good"). Only tags that describe the image itself.
+Example prompt: "masterpiece, best quality, newest, absurdres, highres, 1girl, silver hair, long hair, blue eyes, silver armor, standing, serious expression, ruined cathedral, stained glass, moonlight, night, ivy, broken statues, volumetric lighting, cinematic composition, wide shot"

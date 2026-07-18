@@ -81,9 +81,9 @@ async def ws_proxy(request):
 
 async def handler(request):
     print("[arbiter] REQ %s %s" % (request.method, request.raw_path), flush=True)
-    if request.path == "/ws":
+    if request.path in ("/ws", "/api/ws"):
         return await ws_proxy(request)
-    if request.method == "POST" and request.path == "/prompt":
+    if request.method == "POST" and request.path in ("/prompt", "/api/prompt"):
         await unload_llm()
     body = await request.read()
     url = COMFY + request.raw_path

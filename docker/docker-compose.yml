@@ -148,7 +148,7 @@ services:
   # ---- Lumiverse: creative/RP chat frontend (added 2026-07-18) -----------------
   # Self-hosted AI roleplay UI (prolix-oc/Lumiverse, TS+Bun). Rides LiteLLM like OWUI,
   # but the OpenAI-compatible connection is created IN-APP (Connections -> Custom):
-  # API URL http://litellm:4000/v1, key = LUMIVERSE_LITELLM_KEY (LiteLLM virtual key
+  # API URL https://llm.tabaska.us/v1, key = LUMIVERSE_LITELLM_KEY (LiteLLM virtual key
   # scoped to cydonia/dolphin-venice/goetia — the only model restriction, since the app
   # has no allowlist), model name typed per connection. HTTPS via the mini Caddy
   # (lumiverse.tabaska.us -> rig:3001). Lumiverse ships no semver IMAGE tags (only
@@ -168,12 +168,17 @@ services:
       # Behind the mini Caddy: lock CORS to the real origin instead of TRUST_ANY_ORIGIN.
       TRUST_ANY_ORIGIN: "false"
       TRUSTED_ORIGINS: https://lumiverse.tabaska.us
+      # Scoped LiteLLM virtual key (cydonia/dolphin-venice/goetia). Lumiverse has no
+      # env-seeding, so the app never reads this; it is injected so
+      # scripts/seed-lumiverse-connections.sh can rebuild the in-app connections
+      # (LLM + 3 ComfyUI) after a volume wipe without hand-typing the key.
+      LUMIVERSE_LITELLM_KEY: 
     volumes:
       # data/lumiverse.identity in here is the master key for stored secrets — back it up.
       - lumiverse-data:/app/data
 
   # ---- Marinara-Engine: creative/RP chat + game engine (added 2026-07-18) -------
-  # Pasta-Devs/Marinara-Engine (ALPHA, AGPL-3.0). Reaches LiteLLM at http://litellm:4000/v1
+  # Pasta-Devs/Marinara-Engine (ALPHA, AGPL-3.0). Reaches LiteLLM at https://llm.tabaska.us/v1
   # (needs PROVIDER_LOCAL_URLS_ENABLED=true — it's a private, non-loopback URL). The
   # OpenAI-compatible connection is created in-app with MARINARA_LITELLM_KEY (scoped to the
   # 3 RP models). HARDENING: behind a Docker reverse proxy, the default BYPASS_AUTH_DOCKER
@@ -221,6 +226,10 @@ services:
       ENCRYPTION_KEY: ${MARINARA_ENCRYPTION_KEY}
       CSRF_TRUSTED_ORIGINS: https://marinara.tabaska.us
       CORS_ORIGINS: https://marinara.tabaska.us
+      # Scoped LiteLLM virtual key (cydonia/dolphin-venice/goetia). Marinara 1.5.0
+      # never reads this env; it is injected so scripts/seed-marinara-connections.sh
+      # can rebuild the in-app connections (LLM + 3 ComfyUI) after a volume wipe.
+      MARINARA_LITELLM_KEY: 
     volumes:
       - marinara-data:/app/data
 

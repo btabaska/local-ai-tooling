@@ -101,8 +101,8 @@ env/compose alone cannot express them (neither app supports it).
    `*.api.json` files) and fetches the target `/object_info` live at import time.
 
 8. **Agent wiring in Marinara** (found 2026-07-18, illustrator 405): an agent row has
-   TWO connection fields —  = its TEXT LLM,  =
-   its image connection. Setting the image connection into  makes the
+   TWO connection fields — `connectionId` = its TEXT LLM, `settings.imageConnectionId` =
+   its image connection. Setting the image connection into `connectionId` makes the
    agent POST chat/completions at ComfyUI → "OpenAI API error 405: Method Not Allowed".
    Illustrator agent fixed to connectionId=LiteLLM Creative + imageConnectionId=Flux;
    agents also only run when the CHAT opts in (metadata.enableAgents=true +

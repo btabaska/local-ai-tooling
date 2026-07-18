@@ -245,6 +245,9 @@ services:
       SECURITY_LEVEL: normal
       BASE_DIRECTORY: /basedir
       USE_UV: "true"
+      # browser-side ComfyUI clients (Marinara/Lumiverse image gen) do cross-origin
+      # XHR from *.tabaska.us -> ComfyUI must send CORS headers or the browser blocks it.
+      COMFY_CMDLINE_EXTRA: "--enable-cors-header"
     volumes:
       - /opt/comfyui/run:/comfy/mnt
       - /opt/comfyui:/basedir

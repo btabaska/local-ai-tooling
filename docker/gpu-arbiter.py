@@ -80,6 +80,7 @@ async def ws_proxy(request):
     return client
 
 async def handler(request):
+    print("[arbiter] REQ %s %s" % (request.method, request.raw_path), flush=True)
     if request.path == "/ws":
         return await ws_proxy(request)
     if request.method == "POST" and request.path == "/prompt":

@@ -153,10 +153,14 @@ models:
   # ---- Creative / roleplay (Mistral Small 24B family, Mistral v7 "Tekken") ----
   # Added 2026-07-18. All three are Mistral-Small-3.2-24B RP/creative models, Q5_K_M
   # (~16.8G weights), Tekken chat template served via the embedded jinja template
-  # (--jinja is in ${srv}). DRY sampler on to curb long-chat repetition. ctx 73728 is
-  # the MEASURED ceiling (2026-07-18 bakeoff/ctx-ceiling-probe.sh: 73728 loads @22.8G,
-  # 1.2G free; 81920 OOMs -- all three identical Q5 24B). Edge fit; the Apollo gaming
-  # force-unload is the safety valve, same as the other big models.
+  # (--jinja is in ${srv}). DRY sampler on to curb long-chat repetition.
+  # VISION enabled 2026-07-18: shared mmproj (base Mistral-Small-3.2-2506 vision
+  # tower, unsloth mmproj-F16, 838M) — one file serves all three finetunes. The
+  # tower + its compute buffer cost ~1.3G VRAM, so ctx dropped 73728 -> 61440
+  # (73728 was the measured TEXT-ONLY ceiling: 22.8G, 1.2G free; 81920 OOMs;
+  # 65536+mmproj measured 22.65G server = only 0.5G free with desktop overhead —
+  # 61440 restores the ~1.1G headroom norm). Still an edge fit; the Apollo
+  # gaming force-unload remains the safety valve.
 
   # TheDrummer Cydonia 24B v4.3. Repo: TheDrummer/Cydonia-24B-v4.3-GGUF
   # (file Cydonia-24B-v4zg-Q5_K_M.gguf). HF card specifies NO sampler -> Mistral-24B
@@ -166,7 +170,8 @@ models:
     cmd: |
       ${srv}
       --model /models/cydonia-24b.gguf
-      --ctx-size 73728
+      --mmproj /models/mmproj-mistral-small-3.2-f16.gguf
+      --ctx-size 61440
       --temp 1.0 --top-p 0.95 --top-k 0 --min-p 0.05 --repeat-penalty 1.05
       --dry-multiplier 0.8 --dry-base 1.75 --dry-allowed-length 2
     ttl: 120
@@ -181,7 +186,8 @@ models:
     cmd: |
       ${srv}
       --model /models/dolphin-venice-24b.gguf
-      --ctx-size 73728
+      --mmproj /models/mmproj-mistral-small-3.2-f16.gguf
+      --ctx-size 61440
       --temp 0.7 --top-p 0.95 --top-k 0 --min-p 0.05 --repeat-penalty 1.05
       --dry-multiplier 0.8 --dry-base 1.75 --dry-allowed-length 2
     ttl: 120
@@ -194,7 +200,8 @@ models:
     cmd: |
       ${srv}
       --model /models/goetia-24b.gguf
-      --ctx-size 73728
+      --mmproj /models/mmproj-mistral-small-3.2-f16.gguf
+      --ctx-size 61440
       --temp 0.8 --top-p 0.95 --top-k 0 --min-p 0.05 --repeat-penalty 1.05
       --dry-multiplier 0.8 --dry-base 1.75 --dry-allowed-length 2
     ttl: 120

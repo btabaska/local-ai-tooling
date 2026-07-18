@@ -107,12 +107,16 @@ env/compose alone cannot express them (neither app supports it).
    Illustrator agent fixed to connectionId=LiteLLM Creative + imageConnectionId=Flux;
    agents also only run when the CHAT opts in (metadata.enableAgents=true +
    activeAgentIds contains the agent type; PATCH /api/chats/:id/metadata).
-9. **No vision on the creative trio**: attaching an image to a chat fails with
-   LiteLLM 500 "image input is not supported … provide the mmproj" — the Mistral-Small
-   3.2 GGUFs are loaded text-only (no mmproj file on disk). Enabling vision = download
-   the Mistral-Small-3.2 mmproj (~1 GB, one file serves all 3 finetunes) + add
-   --mmproj to each model in llama-swap-config.yaml + REDUCE ctx from 73728 (measured
-   VRAM ceiling — the vision tower needs ~1-1.5 GiB). Deliberate tradeoff, not done.
+9. **Vision ENABLED on the creative trio (2026-07-18, same day)**: image attachments
+   used to fail with LiteLLM 500 "provide the mmproj". Fixed: downloaded the shared
+   Mistral-Small-3.2-2506 vision tower (unsloth mmproj-F16.gguf, 838 MB) to
+   /opt/llm/models/mmproj-mistral-small-3.2-f16.gguf, added --mmproj to all three
+   models in llama-swap-config.yaml, and cut ctx 73728 -> 61440 (65536 measured only
+   0.5 GiB free with desktop overhead; 61440 restores the ~1 GiB headroom norm).
+   Verified: all three models describe a test image correctly through the public
+   path + MARINARA key; peak VRAM 23.85/24.56 GiB. The mmproj file is a model
+   artifact (not in git) — re-download from
+   huggingface.co/unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF if lost.
 
 10. **Marinara placeholder whitelist** (found 2026-07-18, illustrator + NoobAI): the
    in-app substitution (`generateComfyUI`) replaces ONLY `%prompt%`,

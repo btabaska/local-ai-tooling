@@ -134,6 +134,15 @@ env/compose alone cannot express them (neither app supports it).
    PATCH /api/agents/:id {"promptTemplate": <file contents>}). Verified end to end:
    goetia emits tag prompts, marinara_noobai renders succeed.
 
+12. **CharacterTavern card downloads (2026-07-18)**: "Failed to download character
+   card" — CharacterTavern moved card storage from cards.character-tavern.com
+   (now 403s all clients) to ct-cards.storage.character-tavern.com; Marinara
+   1.5.0 ships the old host and no newer image exists (GHCR semver tops out at
+   1.5.0; git tags v2.3.x have no image). Fix = patched routes file bind-mounted
+   over the image copy (docker/patches/bot-browser-chartavern.routes.js, mount
+   in compose) — verified via GET /api/bot-browser/chartavern/download/... ->
+   200 PNG. REMOVE the mount when bumping the image.
+
 ## Known gaps (deliberate)
 
 - **Civitai token**: only base HF checkpoints are installed; premium/NSFW retrains need a

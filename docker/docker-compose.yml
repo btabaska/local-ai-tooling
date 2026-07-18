@@ -232,6 +232,10 @@ services:
       MARINARA_LITELLM_KEY: 
     volumes:
       - marinara-data:/app/data
+      # PATCH pinned to image 1.5.0: CharacterTavern moved its card CDN; the shipped
+      # code 403s on every card download. Patched copy lives in ./patches — REMOVE
+      # this mount when bumping the image if upstream has fixed CT_CARDS_CDN.
+      - ./patches/bot-browser-chartavern.routes.js:/app/packages/server/dist/routes/bot-browser-chartavern.routes.js:ro
 
 
   # ---- ComfyUI: image-generation backend (rig GPU via CDI) — added 2026-07-18 ----

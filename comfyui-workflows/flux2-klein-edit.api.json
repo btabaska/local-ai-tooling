@@ -1,0 +1,19 @@
+{"prompt":{
+ "1":{"class_type":"UnetLoaderGGUF","inputs":{"unet_name":"flux-2-klein-9b-Q8_0.gguf"}},
+ "2":{"class_type":"CLIPLoader","inputs":{"clip_name":"qwen_3_8b_fp8mixed.safetensors","type":"flux2","device":"default"}},
+ "3":{"class_type":"VAELoader","inputs":{"vae_name":"flux2-vae.safetensors"}},
+ "4":{"class_type":"LoadImage","inputs":{"image":"flux2_edit_input_test.png"}},
+ "5":{"class_type":"FluxKontextImageScale","inputs":{"image":["4",0]}},
+ "6":{"class_type":"VAEEncode","inputs":{"pixels":["5",0],"vae":["3",0]}},
+ "7":{"class_type":"CLIPTextEncode","inputs":{"clip":["2",0],"text":"make it a winter scene: snow covering the trees, frozen lake, overcast sky"}},
+ "8":{"class_type":"ReferenceLatent","inputs":{"conditioning":["7",0],"latent":["6",0]}},
+ "9":{"class_type":"CLIPTextEncode","inputs":{"clip":["2",0],"text":""}},
+ "10":{"class_type":"EmptyFlux2LatentImage","inputs":{"width":1024,"height":1024,"batch_size":1}},
+ "11":{"class_type":"KSamplerSelect","inputs":{"sampler_name":"euler"}},
+ "12":{"class_type":"Flux2Scheduler","inputs":{"steps":20,"width":1024,"height":1024}},
+ "13":{"class_type":"CFGGuider","inputs":{"model":["1",0],"positive":["8",0],"negative":["9",0],"cfg":4.0}},
+ "14":{"class_type":"RandomNoise","inputs":{"noise_seed":424242}},
+ "15":{"class_type":"SamplerCustomAdvanced","inputs":{"noise":["14",0],"guider":["13",0],"sampler":["11",0],"sigmas":["12",0],"latent_image":["10",0]}},
+ "16":{"class_type":"VAEDecode","inputs":{"samples":["15",0],"vae":["3",0]}},
+ "17":{"class_type":"SaveImage","inputs":{"filename_prefix":"flux2_edit","images":["16",0]}}
+}}

@@ -1,0 +1,14 @@
+{"prompt":{
+ "1":{"class_type":"CLIPLoader","inputs":{"clip_name":"qwen_3_4b.safetensors","type":"lumina2","device":"default"}},
+ "2":{"class_type":"UNETLoader","inputs":{"unet_name":"z_image_turbo_bf16.safetensors","weight_dtype":"default"}},
+ "3":{"class_type":"VAELoader","inputs":{"vae_name":"ae.safetensors"}},
+ "4":{"class_type":"ModelSamplingAuraFlow","inputs":{"model":["2",0],"shift":3}},
+ "5":{"class_type":"CLIPTextEncode","inputs":{"clip":["1",0],"text":"photorealistic mountain lake in autumn, golden larch forest along the shoreline, warm evening light, mirror-still water reflections, crisp alpine air, cinematic landscape photography, sharp focus"}},
+ "6":{"class_type":"ConditioningZeroOut","inputs":{"conditioning":["5",0]}},
+ "7":{"class_type":"LoadImage","inputs":{"image":"zimage_i2i_src_lake.png"}},
+ "8":{"class_type":"ImageScaleToTotalPixels","inputs":{"image":["7",0],"upscale_method":"lanczos","megapixels":1.0,"resolution_steps":1}},
+ "9":{"class_type":"VAEEncode","inputs":{"pixels":["8",0],"vae":["3",0]}},
+ "10":{"class_type":"KSampler","inputs":{"seed":42,"steps":8,"cfg":1.0,"sampler_name":"res_multistep","scheduler":"simple","denoise":0.6,"model":["4",0],"positive":["5",0],"negative":["6",0],"latent_image":["9",0]}},
+ "11":{"class_type":"VAEDecode","inputs":{"samples":["10",0],"vae":["3",0]}},
+ "12":{"class_type":"SaveImage","inputs":{"filename_prefix":"zimage_i2i","images":["11",0]}}
+}}

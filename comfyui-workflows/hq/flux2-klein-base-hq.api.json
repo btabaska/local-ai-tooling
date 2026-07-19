@@ -3,7 +3,7 @@
   "1": {
    "class_type": "UnetLoaderGGUF",
    "inputs": {
-    "unet_name": "flux-2-klein-9b-Q8_0.gguf"
+    "unet_name": "flux-2-klein-base-9b-Q8_0.gguf"
    }
   },
   "2": {
@@ -27,7 +27,7 @@
      "2",
      0
     ],
-    "text": "%prompt%"
+    "text": "a vintage motorcycle in front of a retro diner at sunset, warm neon glow, cinematic photo, film grain, highly detailed"
    }
   },
   "5": {
@@ -37,14 +37,14 @@
      "2",
      0
     ],
-    "text": "%negative_prompt%"
+    "text": ""
    }
   },
   "6": {
    "class_type": "EmptyFlux2LatentImage",
    "inputs": {
-    "width": "%width%",
-    "height": "%height%",
+    "width": 1536,
+    "height": 1536,
     "batch_size": 1
    }
   },
@@ -57,9 +57,9 @@
   "8": {
    "class_type": "Flux2Scheduler",
    "inputs": {
-    "steps": 6,
-    "width": "%width%",
-    "height": "%height%"
+    "steps": 24,
+    "width": 1536,
+    "height": 1536
    }
   },
   "9": {
@@ -77,13 +77,13 @@
      "5",
      0
     ],
-    "cfg": 1.0
+    "cfg": 4.0
    }
   },
   "10": {
    "class_type": "RandomNoise",
    "inputs": {
-    "noise_seed": "%seed%"
+    "noise_seed": 12345
    }
   },
   "11": {
@@ -127,7 +127,7 @@
   "13": {
    "class_type": "SaveImage",
    "inputs": {
-    "filename_prefix": "marinara_flux",
+    "filename_prefix": "flux2_hq",
     "images": [
      "12",
      0

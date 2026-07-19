@@ -1,9 +1,88 @@
-{"prompt":{
- "3":{"class_type":"KSampler","inputs":{"seed":42,"steps":28,"cfg":5.0,"sampler_name":"euler_ancestral","scheduler":"normal","denoise":1.0,"model":["4",0],"positive":["6",0],"negative":["7",0],"latent_image":["5",0]}},
- "4":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"NoobAI-XL-v1.1.safetensors"}},
- "5":{"class_type":"EmptyLatentImage","inputs":{"width":1024,"height":1024,"batch_size":1}},
- "6":{"class_type":"CLIPTextEncode","inputs":{"text":"1girl, solo, masterpiece, best quality, very aesthetic, silver hair, blue eyes, ornate fantasy armor, castle courtyard, cinematic lighting","clip":["4",1]}},
- "7":{"class_type":"CLIPTextEncode","inputs":{"text":"lowres, bad anatomy, bad hands, worst quality, watermark, signature","clip":["4",1]}},
- "8":{"class_type":"VAEDecode","inputs":{"samples":["3",0],"vae":["4",2]}},
- "9":{"class_type":"SaveImage","inputs":{"filename_prefix":"noobai_test","images":["8",0]}}
-}}
+{
+ "prompt": {
+  "4": {
+   "class_type": "CheckpointLoaderSimple",
+   "inputs": {
+    "ckpt_name": "NoobAI-XL-v1.1.safetensors"
+   }
+  },
+  "6": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "clip": [
+     "4",
+     1
+    ],
+    "text": "masterpiece, best quality, newest, absurdres, highres, 1girl, solo, silver hair, blue eyes, ornate fantasy armor, castle courtyard, cinematic lighting, dramatic shadows"
+   }
+  },
+  "7": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "clip": [
+     "4",
+     1
+    ],
+    "text": "worst quality, low quality, lowres, jpeg artifacts, bad anatomy, bad hands, extra digits, missing fingers, watermark, signature, text"
+   }
+  },
+  "5": {
+   "class_type": "EmptyLatentImage",
+   "inputs": {
+    "width": 832,
+    "height": 1216,
+    "batch_size": 1
+   }
+  },
+  "3": {
+   "class_type": "KSampler",
+   "inputs": {
+    "seed": 42,
+    "steps": 30,
+    "cfg": 5.5,
+    "sampler_name": "euler_ancestral",
+    "scheduler": "normal",
+    "denoise": 1.0,
+    "model": [
+     "4",
+     0
+    ],
+    "positive": [
+     "6",
+     0
+    ],
+    "negative": [
+     "7",
+     0
+    ],
+    "latent_image": [
+     "5",
+     0
+    ]
+   }
+  },
+  "8": {
+   "class_type": "VAEDecode",
+   "inputs": {
+    "samples": [
+     "3",
+     0
+    ],
+    "vae": [
+     "4",
+     2
+    ]
+   }
+  },
+  "9": {
+   "class_type": "SaveImage",
+   "inputs": {
+    "filename_prefix": "noobai_test",
+    "images": [
+     "8",
+     0
+    ]
+   }
+  }
+ }
+}

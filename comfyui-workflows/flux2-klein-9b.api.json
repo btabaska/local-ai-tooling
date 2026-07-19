@@ -1,15 +1,138 @@
-{"prompt":{
- "1":{"class_type":"UnetLoaderGGUF","inputs":{"unet_name":"flux-2-klein-9b-Q8_0.gguf"}},
- "2":{"class_type":"CLIPLoader","inputs":{"clip_name":"qwen_3_8b_fp8mixed.safetensors","type":"flux2","device":"default"}},
- "3":{"class_type":"VAELoader","inputs":{"vae_name":"flux2-vae.safetensors"}},
- "4":{"class_type":"CLIPTextEncode","inputs":{"clip":["2",0],"text":"a vintage motorcycle parked in front of a retro diner at sunset, warm orange and pink sky, neon signs glowing, cinematic photo, film grain"}},
- "5":{"class_type":"CLIPTextEncode","inputs":{"clip":["2",0],"text":""}},
- "6":{"class_type":"EmptyFlux2LatentImage","inputs":{"width":1024,"height":1024,"batch_size":1}},
- "7":{"class_type":"KSamplerSelect","inputs":{"sampler_name":"euler"}},
- "8":{"class_type":"Flux2Scheduler","inputs":{"steps":20,"width":1024,"height":1024}},
- "9":{"class_type":"CFGGuider","inputs":{"model":["1",0],"positive":["4",0],"negative":["5",0],"cfg":5.0}},
- "10":{"class_type":"RandomNoise","inputs":{"noise_seed":12345}},
- "11":{"class_type":"SamplerCustomAdvanced","inputs":{"noise":["10",0],"guider":["9",0],"sampler":["7",0],"sigmas":["8",0],"latent_image":["6",0]}},
- "12":{"class_type":"VAEDecode","inputs":{"samples":["11",0],"vae":["3",0]}},
- "13":{"class_type":"SaveImage","inputs":{"filename_prefix":"flux2_test","images":["12",0]}}
-}}
+{
+ "prompt": {
+  "1": {
+   "class_type": "UnetLoaderGGUF",
+   "inputs": {
+    "unet_name": "flux-2-klein-9b-Q8_0.gguf"
+   }
+  },
+  "2": {
+   "class_type": "CLIPLoader",
+   "inputs": {
+    "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+    "type": "flux2",
+    "device": "default"
+   }
+  },
+  "3": {
+   "class_type": "VAELoader",
+   "inputs": {
+    "vae_name": "flux2-vae.safetensors"
+   }
+  },
+  "4": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "clip": [
+     "2",
+     0
+    ],
+    "text": "a vintage motorcycle in front of a retro diner at sunset, warm neon glow, cinematic photo, film grain"
+   }
+  },
+  "5": {
+   "class_type": "CLIPTextEncode",
+   "inputs": {
+    "clip": [
+     "2",
+     0
+    ],
+    "text": ""
+   }
+  },
+  "6": {
+   "class_type": "EmptyFlux2LatentImage",
+   "inputs": {
+    "width": 1280,
+    "height": 1280,
+    "batch_size": 1
+   }
+  },
+  "7": {
+   "class_type": "KSamplerSelect",
+   "inputs": {
+    "sampler_name": "euler"
+   }
+  },
+  "8": {
+   "class_type": "Flux2Scheduler",
+   "inputs": {
+    "steps": 6,
+    "width": 1280,
+    "height": 1280
+   }
+  },
+  "9": {
+   "class_type": "CFGGuider",
+   "inputs": {
+    "model": [
+     "1",
+     0
+    ],
+    "positive": [
+     "4",
+     0
+    ],
+    "negative": [
+     "5",
+     0
+    ],
+    "cfg": 1.0
+   }
+  },
+  "10": {
+   "class_type": "RandomNoise",
+   "inputs": {
+    "noise_seed": 12345
+   }
+  },
+  "11": {
+   "class_type": "SamplerCustomAdvanced",
+   "inputs": {
+    "noise": [
+     "10",
+     0
+    ],
+    "guider": [
+     "9",
+     0
+    ],
+    "sampler": [
+     "7",
+     0
+    ],
+    "sigmas": [
+     "8",
+     0
+    ],
+    "latent_image": [
+     "6",
+     0
+    ]
+   }
+  },
+  "12": {
+   "class_type": "VAEDecode",
+   "inputs": {
+    "samples": [
+     "11",
+     0
+    ],
+    "vae": [
+     "3",
+     0
+    ]
+   }
+  },
+  "13": {
+   "class_type": "SaveImage",
+   "inputs": {
+    "filename_prefix": "flux2_test",
+    "images": [
+     "12",
+     0
+    ]
+   }
+  }
+ }
+}

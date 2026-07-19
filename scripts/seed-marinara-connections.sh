@@ -62,6 +62,9 @@ WANTED = [
          baseUrl="https://comfyui.tabaska.us", model="z_image_turbo_bf16.safetensors",
          comfyuiWorkflow=wf("z-image-turbo-realistic.marinara.json")),
     # model field deliberately avoids the substring "flux" — see header comment.
+    dict(name="Realistic NSFW (CyberRealistic)", provider="image_generation",
+         baseUrl="https://comfyui.tabaska.us", model="cyberrealistic-nsfw-zimage-turbo.safetensors",
+         comfyuiWorkflow=wf("z-image-nsfw-cyberrealistic.marinara.json")),
     dict(name="Realistic Image (Flux.2 Klein)", provider="image_generation",
          baseUrl="https://comfyui.tabaska.us", model="klein-9b-comfyui",
          comfyuiWorkflow=wf("flux2-klein-9b.marinara.json")),

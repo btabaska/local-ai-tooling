@@ -106,6 +106,12 @@ IMAGE = [
         {"nodeId": "7", "fieldName": "width", "mappedAs": "width"},
         {"nodeId": "7", "fieldName": "height", "mappedAs": "height"},
     ]),
+    ("Realistic NSFW (CyberRealistic)", "z-image-nsfw-cyberrealistic.api.json", False, [
+        {"nodeId": "5", "fieldName": "text", "mappedAs": "positive_prompt"},
+        {"nodeId": "8", "fieldName": "seed", "mappedAs": "seed"},
+        {"nodeId": "7", "fieldName": "width", "mappedAs": "width"},
+        {"nodeId": "7", "fieldName": "height", "mappedAs": "height"},
+    ]),
     ("Realistic Image (Flux.2 Klein)", "flux2-klein-9b.api.json", False, [
         # steps/cfg pinned (20/4-5); width/height live on latent node 6 AND scheduler node 8
         {"nodeId": "4", "fieldName": "text", "mappedAs": "positive_prompt"},

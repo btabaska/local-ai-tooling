@@ -1,3 +1,15 @@
+> # ⚠ HISTORICAL — retired 2026-07-29 (ai-07)
+>
+> **Point-in-time build handoff, NOT current truth.** This documents the ai-02
+> Marinara/Lumiverse + ComfyUI creative-frontend wiring on 2026-07-18. Its
+> **"Quirks / lessons"** section is still a useful reference for those apps, but
+> connection IDs, image tags, and version specifics drift — verify against the
+> live apps and the wiki. Current entry point: the repo
+> **[`../../README.md`](../../README.md)** →
+> **https://wiki.tabaska.us/architecture/local-ai-build/**.
+
+---
+
 # HANDOFF ai-02 — Marinara + Lumiverse fully wired to the creative stack (2026-07-18)
 
 Session goal (full original brief in the appendix): wire all creative/RP models —

@@ -1,3 +1,15 @@
+> # ⚠ HISTORICAL — retired 2026-07-29 (ai-07)
+>
+> **This is a point-in-time build handoff, NOT current truth.** It describes the
+> original **Ollama-native** rig + MacBook setup from *before* the ai-01
+> llama.cpp/llama-swap migration, so its setup steps (`bootstrap.sh`,
+> `setup-agentic.sh`, pulling big models into Ollama, pointing clients at
+> `:11434`) **no longer reflect the running stack**. Current entry point: the repo
+> **[`../../README.md`](../../README.md)** →
+> **https://wiki.tabaska.us/architecture/local-ai-build/**. Kept for the record.
+
+---
+
 # INSTRUCTIONS — set up the rig, connect from the MacBook
 
 Follow top to bottom. Phase 1 runs once on the CachyOS rig; Phase 2 is your work MacBook.

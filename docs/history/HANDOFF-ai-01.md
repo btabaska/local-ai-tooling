@@ -1,3 +1,12 @@
+> # ⚠ HISTORICAL — retired 2026-07-29 (ai-07)
+>
+> **Point-in-time build handoff, NOT current truth.** This drove the ai-01
+> Ollama→llama.cpp/llama-swap migration on 2026-07-14/15. Current entry point:
+> the repo **[`../../README.md`](../../README.md)** →
+> **https://wiki.tabaska.us/architecture/local-ai-build/**.
+
+---
+
 # HANDOFF — ai-01 Local-AI buildout (EXECUTED 2026-07-15)
 
 > **Status: executed.** This is the operator handoff that drove the ai-01

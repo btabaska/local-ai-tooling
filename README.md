@@ -27,6 +27,23 @@ AI Tagger Universe, and arbitrary tools — with the model lineup free to change
 > **Just want the step-by-step?** Follow **[`INSTRUCTIONS.md`](INSTRUCTIONS.md)** — rig setup +
 > connecting from the MacBook, top to bottom. This README is the reference/reasoning behind it.
 
+## Publishing — push to BOTH remotes
+
+This repo is dual-remoted, like the rest of the fleet (mirrors the `home/docker-stacks`
+precedent + `foss-setup/scripts/docs/publish-deploy.sh`). Every commit must land in **both**:
+
+- `origin` → `git@github.com:btabaska/local-ai-tooling.git` (GitHub)
+- `forgejo` → `forgejo:home/local-ai-tooling` (self-hosted, `git.tabaska.us`, mini:2222)
+
+```sh
+git push origin main && git push forgejo main
+git push origin --tags && git push forgejo --tags   # when tags change
+```
+
+The rig's `forgejo` push uses the dedicated `~/.ssh/id_forgejo` **user** key
+("rig-workstation"); verify with `ssh -T forgejo`. Pushing only GitHub leaves the Forgejo
+mirror stale — the exact single-remote-island drift ai-02 closed on 2026-07-29.
+
 ---
 
 ## TL;DR — what this sets up

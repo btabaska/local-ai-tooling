@@ -1,0 +1,282 @@
+# ── docker/models.manifest.yaml ─────────────────────────────────────────────
+# Model-weight manifest for the rig's local AI stack (ai-06).
+#
+# WHY THIS FILE EXISTS: the GGUF weights in /opt/llm/models are DELIBERATELY
+# excluded from restic (too large — ~160 GB). That is correct, but it left the
+# weights un-inventoried, so the stack was NOT provably rebuildable after an
+# NVMe loss (which GGUF? from where? what quant? intact?). This manifest is the
+# integrity + provenance record that closes that gap: for every GGUF actually
+# served by docker/llama-swap-config.yaml, it records the on-disk filename,
+# byte size, sha256 (the integrity anchor), source (HF repo + upstream file),
+# quant, and which llama-swap model name + LiteLLM public alias it backs.
+#
+# REBUILD PATH: scripts/fetch-models.sh re-downloads this set into
+# /opt/llm/models and verifies each sha256. See the `restore` section at the
+# bottom, and the `ollama_shim` section for the 3 Ollama-store models.
+#
+# SOURCE OF TRUTH: the LIVE stack. Cross-checked 2026-07-29 against
+# docker/llama-swap-config.yaml (--model paths) + docker/litellm-config.yaml
+# (aliases). Regenerate hashes with:  cd /opt/llm/models && sha256sum *.gguf
+#
+# CONFIDENCE on `source.repo`:
+#   verified  = HF repo/quantizer embedded in the GGUF header (general.repo_url
+#               / general.quantized_by) or named verbatim in llama-swap-config.
+#   inferred  = repo deduced from base model + quantizer + quant; the on-disk
+#               file was renamed, so confirm the exact upstream file by matching
+#               sha256/size after download (fetch-models.sh does this).
+# ────────────────────────────────────────────────────────────────────────────
+
+meta:
+  host: rig (CachyOS, RTX 3090 Ti 24GB)
+  models_dir: /opt/llm/models
+  served_by: docker/llama-swap-config.yaml  # llama.cpp llama-server, on-demand swap
+  gateway: docker/litellm-config.yaml        # LiteLLM :4000 public aliases
+  captured: 2026-07-29
+  file_type_legend:  # ggml LLAMA_FTYPE -> quant (for reference)
+    2: Q4_0
+    7: Q8_0
+    15: Q4_K_M
+    17: Q5_K_M
+    25: IQ4_NL
+  notes:
+    - "Total served weights ~160 GB across 13 GGUFs (12 chat/code/creative + 1 shared vision projector)."
+    - "One big model is resident at a time (llama-swap `big` group, exclusive+swap); the embedder is CPU-pinned + persistent. See rig-gpu-vram-contention."
+
+# ── Served GGUFs (each is a `--model` in llama-swap-config.yaml) ──────────────
+served:
+
+  # ---- Coding / agentic ----
+  - file: Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
+    llama_swap_model: qwen3.6-35b-a3b
+    litellm_alias: [coder, code]          # bake-off winner (2026-07-15)
+    role: coding/agentic (MoE, default coder)
+    quant: UD-IQ4_NL_XL           # unsloth dynamic; header file_type 25 = IQ4_NL
+    size_bytes: 19500506080       # ~18.16 GiB
+    sha256: 071ee2a008ec51372f990d8efbea92ec9dd0137974110ef68fbfde429c8c6dd4
+    source:
+      repo: unsloth/Qwen3.6-35B-A3B-GGUF
+      file: Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
+      base_model: Qwen/Qwen3.6-35B-A3B
+      quantized_by: Unsloth
+      confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; filename preserved
+
+  - file: Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf
+    llama_swap_model: qwen3.6-27b
+    litellm_alias: [coder-strong]
+    role: coding/agentic (dense, MTP spec-decode ~50 t/s, long/hard runs)
+    quant: UD-Q4_K_XL             # unsloth dynamic (MTP build); header file_type 15
+    size_bytes: 17909097600       # ~16.68 GiB
+    sha256: 4085665ee36d82a672a238a43f0e5643f2f0e39f2d7bd5d373f0ef10ecf53095
+    source:
+      repo: unsloth/Qwen3.6-27B-GGUF
+      file: Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf   # MTP self-speculative variant
+      base_model: Qwen/Qwen3.6-27B
+      quantized_by: Unsloth
+      confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; filename preserved
+
+  - file: qwen3-coder-30b.gguf
+    llama_swap_model: qwen3-coder-30b
+    litellm_alias: []             # DISCREPANCY: served by llama-swap but NO LiteLLM alias (direct-only)
+    role: coding (MoE) — reachable only directly via llama-swap, not the gateway
+    quant: Q4_K_M                 # header file_type 15 (unsloth build; on-disk renamed)
+    size_bytes: 17665334432       # ~16.45 GiB
+    sha256: 2841aa314d916434860cfb8990347528dcdfe5c350dbcb9d1461dbee88ff2533
+    source:
+      repo: unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF
+      file: Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf   # confirm by sha256/size (renamed on disk)
+      base_model: Qwen/Qwen3-Coder-30B-A3B-Instruct
+      quantized_by: Unsloth
+      confidence: inferred   # quantized_by=Unsloth verified; exact upstream filename inferred
+
+  - file: devstral-24b.gguf
+    llama_swap_model: devstral-24b
+    litellm_alias: []             # DISCREPANCY: served but NO alias (documented fallback coder, commented in configs)
+    role: coding fallback (dense) — direct-only via llama-swap
+    quant: Q4_K_M                 # header file_type 15
+    size_bytes: 14548874304       # ~13.55 GiB
+    sha256: d8d48447e4de4c6ffab551d77c48d0898b50ea5d2b7f71ebf48332a7cb58c9a6
+    source:
+      repo: unsloth/Devstral-Small-2505-GGUF
+      file: Devstral-Small-2505-UD-Q4_K_XL.gguf   # confirm by sha256/size (renamed on disk)
+      base_model: mistralai/Devstral-Small-2505
+      quantized_by: Unsloth
+      confidence: inferred
+
+  # ---- Chat ----
+  - file: gemma4-31b-qat.gguf
+    llama_swap_model: gemma4-31b-qat
+    litellm_alias: [chat]
+    role: general chat (default)
+    quant: Q4_0 (QAT)             # header file_type 2 = Q4_0; QAT-lossless
+    size_bytes: 17287668064       # ~16.10 GiB
+    sha256: 9188a71055550f1e60b875d02b7abb63625ac11b4a6f148d6b22b3b28ba3d335
+    source:
+      repo: unsloth/gemma-4-31b-it-qat-GGUF
+      file: gemma-4-31b-it-qat-Q4_0.gguf   # confirm by sha256/size (renamed on disk)
+      base_model: google/gemma-4-31B-it
+      quantized_by: unsloth
+      confidence: inferred   # quantized_by=unsloth verified; exact repo/file inferred
+
+  - file: deckard-heretic.gguf
+    llama_swap_model: deckard-heretic
+    litellm_alias: [chat-creative]
+    role: creative / uncensored chat (Gemma-4 31B finetune, thinking)
+    quant: Q4_K_M                 # header file_type 15 = Q4_K_M
+    size_bytes: 18687058720       # ~17.40 GiB
+    sha256: 577a97c78011b40d03a1902495b5c1029b8502c8f935397317de9a8133e51cf7
+    source:
+      repo: DavidAU (Gemma-4-31B DECKARD-HERETIC-UNCENSORED-Thinking GGUF)
+      file: null   # confirm exact repo/file on HF (DavidAU); match by sha256/size
+      base_model: google/gemma-4-31B-it (via DavidAU DECKARD-HERETIC finetune)
+      quantized_by: DavidAU
+      confidence: inferred
+    warning: >
+      llama-swap-config.yaml labels this "31B Q6" but the GGUF header is
+      file_type 15 = Q4_K_M and 17.4 GiB is consistent with Q4_K_M (Q6_K of a
+      31B would be ~25 GB). Header quant (Q4_K_M) is authoritative here.
+
+  # ---- Creative / roleplay (Mistral-Small-3.2-24B family, share one vision projector) ----
+  - file: cydonia-24b.gguf
+    llama_swap_model: cydonia-24b
+    litellm_alias: [cydonia]
+    role: creative / RP; uses mmproj-mistral-small-3.2-f16.gguf for vision
+    quant: Q5_K_M                 # header file_type 17
+    size_bytes: 16763985024       # ~15.61 GiB
+    sha256: 7ebb97a585738cd586b90eb3474f958b9a3c0ed63fe256e75812c1d8356a1d86
+    source:
+      repo: TheDrummer/Cydonia-24B-v4.3-GGUF
+      file: Cydonia-24B-v4zg-Q5_K_M.gguf   # named in llama-swap-config comment; header finetune=v4zg-Workspace
+      base_model: mistralai/Mistral-Small-3.2-24B-Instruct-2506
+      quantized_by: TheDrummer
+      confidence: verified   # repo+file named verbatim in llama-swap-config.yaml
+
+  - file: dolphin-venice-24b.gguf
+    llama_swap_model: dolphin-venice-24b
+    litellm_alias: [dolphin-venice]
+    role: uncensored/steerable creative (behavior set by system prompt); vision via mmproj
+    quant: Q5_K_M                 # header file_type 17
+    size_bytes: 16763984256       # ~15.61 GiB
+    sha256: ff3f4feb80bca6b4755405632092ede76a0e8f9c05af64d6e76d25737adc1909
+    source:
+      repo: bartowski/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-GGUF
+      file: cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q5_K_M.gguf   # confirm by sha256/size
+      base_model: cognitivecomputations/Dolphin-Mistral-24B-Venice-Edition (Mistral-Small-24B-2501)
+      quantized_by: bartowski
+      confidence: verified   # repo named verbatim in llama-swap-config comment; file by bartowski convention
+
+  - file: goetia-24b.gguf
+    llama_swap_model: goetia-24b
+    litellm_alias: [goetia]
+    role: dark RP merge (DELLA of 33 Mistral-Small-3.2-24B tunes); vision via mmproj
+    quant: Q5_K_M                 # header file_type 17
+    size_bytes: 16763995200       # ~15.61 GiB
+    sha256: 80b6c1d16e0ddb3ac764a246e1ad628b6259c6878d2580a528055965a5182f6f
+    source:
+      repo: mradermacher/Goetia-24B-v1.3-GGUF
+      file: Goetia-24B-v1.3.Q5_K_M.gguf   # named in llama-swap-config comment
+      base_model: Mistral-Small-3.2-24B (Goetia-24B-v1.3 DELLA merge)
+      quantized_by: mradermacher
+      confidence: verified   # repo+file named verbatim in llama-swap-config.yaml
+
+  # ---- Shared vision projector (loaded by all three creative models above) ----
+  - file: mmproj-mistral-small-3.2-f16.gguf
+    llama_swap_model: null        # not a standalone model; --mmproj for cydonia/dolphin-venice/goetia
+    litellm_alias: []
+    role: vision/mmproj tower (Mistral-Small-3.2-2506) shared by the creative trio
+    quant: F16                    # header file_type 1 = F16
+    size_bytes: 878053568         # ~0.82 GiB
+    sha256: d6af684ae9136398eaa0b59ea9e0b0b850bb6ac5084f1e8c5cb8f85251825eaf
+    source:
+      repo: unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF
+      file: mmproj-F16.gguf
+      base_model: mistralai/Mistral-Small-3.2-24B-Instruct-2506
+      quantized_by: Unsloth
+      confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; unsloth mmproj-F16
+
+  # ---- Small / utility ----
+  - file: qwen2.5-coder-7b.gguf
+    llama_swap_model: qwen2.5-coder-7b
+    litellm_alias: [fast]
+    role: autocomplete / cheap tool loop / ops-agent inner loop
+    quant: Q4_K_M                 # header file_type 15
+    size_bytes: 4683074336        # ~4.36 GiB
+    sha256: 1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6
+    source:
+      repo: Qwen/Qwen2.5-Coder-7B-Instruct-GGUF
+      file: qwen2.5-coder-7b-instruct-q4_k_m.gguf   # confirm by sha256/size (renamed on disk)
+      base_model: Qwen/Qwen2.5-Coder-7B-Instruct
+      quantized_by: Qwen (official GGUF) — verify vs bartowski
+      confidence: inferred   # no quantized_by/repo_url in header; Qwen official GGUF is best match
+
+  - file: llama3.2-3b.gguf
+    llama_swap_model: fast-3b
+    litellm_alias: [utility]
+    role: tagging / titles / classification (temp 0, deterministic)
+    quant: Q4_K_M                 # header file_type 15
+    size_bytes: 2060886464        # ~1.92 GiB
+    sha256: 2ca38452bd9f4348251abbc3f8234ecf0ddf9b96bfcbe639d4375b2721175d0b
+    source:
+      repo: unsloth/Llama-3.2-3B-Instruct-GGUF
+      file: Llama-3.2-3B-Instruct-Q4_K_M.gguf   # confirm by sha256/size (renamed on disk)
+      base_model: meta-llama/Llama-3.2-3B-Instruct
+      quantized_by: Unsloth
+      confidence: inferred   # quantized_by=Unsloth verified; exact file inferred
+
+  # ---- Embeddings (persistent, CPU-pinned) ----
+  - file: Qwen3-Embedding-0.6B-Q8_0.gguf
+    llama_swap_model: qwen3-embed
+    litellm_alias: [embed]
+    role: RAG embeddings (1024-dim, --pooling last, CPU-only)
+    quant: Q8_0                   # header file_type 7; matches filename
+    size_bytes: 639150592         # ~0.60 GiB
+    sha256: 06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439
+    source:
+      repo: Qwen/Qwen3-Embedding-0.6B-GGUF
+      file: Qwen3-Embedding-0.6B-Q8_0.gguf
+      base_model: Qwen/Qwen3-Embedding-0.6B
+      quantized_by: Qwen (official GGUF)
+      confidence: verified   # filename preserved; Qwen publishes this GGUF
+
+# ── Ollama shim models (Ollama's OWN store, NOT /opt/llm/models) ─────────────
+# Demoted to a 3-model compat shim on :11434 for HA Assist + Obsidian only
+# (see README + scripts/03-model-variants.sh). Rebuild path = ollama pull/create.
+ollama_shim:
+  store: ~/.ollama (Ollama-managed blobs; not in /opt/llm/models, not in restic)
+  models:
+    - name: llama3.2:3b
+      size: ~2.0 GB
+      restore: "ollama pull llama3.2:3b"
+    - name: nomic-embed-text:latest
+      size: ~274 MB
+      restore: "ollama pull nomic-embed-text"
+    - name: tag:fast
+      size: ~2.0 GB
+      derived_from: llama3.2:3b
+      restore: |
+        # created by scripts/03-model-variants.sh (num_ctx 8192, temp 0):
+        printf 'FROM llama3.2:3b\nPARAMETER num_ctx 8192\nPARAMETER temperature 0\n' > /tmp/Modelfile.tag
+        ollama create tag:fast -f /tmp/Modelfile.tag
+
+# ── Archived / superseded weights (present on disk, NOT served) ──────────────
+# In /opt/llm/models/archive/ — kept for rollback, referenced by NO config.
+archived:
+  - file: archive/Qwen3.6-27B-UD-Q4_K_XL.gguf
+    size_bytes: 17612564704       # ~16.40 GiB
+    sha256: ff6941ded525b34eb159496762c29dd0ec6e71dc31b74d57e75d871a03eec259
+    note: pre-MTP 27B dense; superseded 2026-07-16 by Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf
+  - file: archive/nomic-embed-text.gguf
+    size_bytes: 84106624          # ~0.078 GiB
+    sha256: d4e388894e09cf3816e8b0896d81d265b55e7a9fff9ab03fe8bf4ef5e11295ac
+    note: pre-Qwen3 embedder; replaced 2026-07-15 by Qwen3-Embedding-0.6B (2048-ctx too small for wiki chunks)
+
+# ── Restore ──────────────────────────────────────────────────────────────────
+restore:
+  script: scripts/fetch-models.sh
+  how: >
+    Re-downloads every `served:` GGUF into /opt/llm/models and verifies each
+    sha256 (skips files already present + intact). Then rebuild the ollama_shim
+    with the pull/create commands above. huggingface-cli / hf required.
+  discrepancies_flagged:
+    - "qwen3-coder-30b + devstral-24b are in the llama-swap `big` group but have NO LiteLLM alias (direct-only)."
+    - "deckard-heretic quant: config says Q6, header says Q4_K_M (header wins — see its warning)."
+    - "Every /opt/llm/models/*.gguf IS referenced by llama-swap-config.yaml (no orphan served files); archive/ is intentionally unreferenced."

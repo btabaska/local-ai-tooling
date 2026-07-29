@@ -1,0 +1,4 @@
+{
+  "_comment": "pi.dev auth file — deploy to ~/.pi/agent/auth.json (chmod 0600). pi's key field interpolates $LITELLM_API_KEY at runtime, so NO secret is written to disk. LITELLM_API_KEY is exported by ~/.bashrc + ~/.bash_profile from docker/.env's CODING_LITELLM_KEY (a LiteLLM virtual key scoped to coder/coder-strong/fast/utility). auth.json credentials take priority over env and are what make the custom 'litellm' provider's models appear in pi's /model picker (and Orca's).",
+  "litellm": { "type": "api_key", "key": "$LITELLM_API_KEY" }
+}

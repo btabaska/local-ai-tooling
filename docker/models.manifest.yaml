@@ -39,7 +39,7 @@ meta:
     17: Q5_K_M
     25: IQ4_NL
   notes:
-    - "Total served weights ~160 GB across 13 GGUFs (12 chat/code/creative + 1 shared vision projector)."
+    - "Total served weights ~130 GB across 11 GGUFs (10 chat/code/creative + 1 shared vision projector). qwen3-coder-30b + devstral-24b retired 2026-07-29 → archive/ (~30 GB)."
     - "One big model is resident at a time (llama-swap `big` group, exclusive+swap); the embedder is CPU-pinned + persistent. See rig-gpu-vram-contention."
 
 # ── Served GGUFs (each is a `--model` in llama-swap-config.yaml) ──────────────
@@ -74,33 +74,7 @@ served:
       quantized_by: Unsloth
       confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; filename preserved
 
-  - file: qwen3-coder-30b.gguf
-    llama_swap_model: qwen3-coder-30b
-    litellm_alias: []             # DISCREPANCY: served by llama-swap but NO LiteLLM alias (direct-only)
-    role: coding (MoE) — reachable only directly via llama-swap, not the gateway
-    quant: Q4_K_M                 # header file_type 15 (unsloth build; on-disk renamed)
-    size_bytes: 17665334432       # ~16.45 GiB
-    sha256: 2841aa314d916434860cfb8990347528dcdfe5c350dbcb9d1461dbee88ff2533
-    source:
-      repo: unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF
-      file: Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf   # confirm by sha256/size (renamed on disk)
-      base_model: Qwen/Qwen3-Coder-30B-A3B-Instruct
-      quantized_by: Unsloth
-      confidence: inferred   # quantized_by=Unsloth verified; exact upstream filename inferred
-
-  - file: devstral-24b.gguf
-    llama_swap_model: devstral-24b
-    litellm_alias: []             # DISCREPANCY: served but NO alias (documented fallback coder, commented in configs)
-    role: coding fallback (dense) — direct-only via llama-swap
-    quant: Q4_K_M                 # header file_type 15
-    size_bytes: 14548874304       # ~13.55 GiB
-    sha256: d8d48447e4de4c6ffab551d77c48d0898b50ea5d2b7f71ebf48332a7cb58c9a6
-    source:
-      repo: unsloth/Devstral-Small-2505-GGUF
-      file: Devstral-Small-2505-UD-Q4_K_XL.gguf   # confirm by sha256/size (renamed on disk)
-      base_model: mistralai/Devstral-Small-2505
-      quantized_by: Unsloth
-      confidence: inferred
+  # (qwen3-coder-30b + devstral-24b retired 2026-07-29 — moved to `archived:` below.)
 
   # ---- Chat ----
   - file: gemma4-31b-qat.gguf
@@ -125,15 +99,17 @@ served:
     size_bytes: 18687058720       # ~17.40 GiB
     sha256: 577a97c78011b40d03a1902495b5c1029b8502c8f935397317de9a8133e51cf7
     source:
-      repo: DavidAU (Gemma-4-31B DECKARD-HERETIC-UNCENSORED-Thinking GGUF)
-      file: null   # confirm exact repo/file on HF (DavidAU); match by sha256/size
+      repo: mradermacher/gemma-4-31B-it-The-DECKARD-HERETIC-UNCENSORED-Thinking-GGUF
+      file: gemma-4-31B-it-The-DECKARD-HERETIC-UNCENSORED-Thinking.Q4_K_M.gguf
       base_model: google/gemma-4-31B-it (via DavidAU DECKARD-HERETIC finetune)
-      quantized_by: DavidAU
-      confidence: inferred
-    warning: >
-      llama-swap-config.yaml labels this "31B Q6" but the GGUF header is
-      file_type 15 = Q4_K_M and 17.4 GiB is consistent with Q4_K_M (Q6_K of a
-      31B would be ~25 GB). Header quant (Q4_K_M) is authoritative here.
+      quantized_by: mradermacher   # GGUF quant; base finetune by DavidAU
+      confidence: verified   # HF LFS oid == this sha256 (byte-identical), size exact; public/ungated (2026-07-29)
+    resolved: >
+      2026-07-29 (ai-08): source pinned. The prior fetch-models.sh PLACEHOLDER +
+      "DavidAU" quantizer were unverified; the on-disk file is byte-identical
+      (matching HF LFS oid AND size) to mradermacher's static Q4_K_M. The old
+      config label "31B Q6/20G" was also wrong — header file_type 15 = Q4_K_M,
+      17.4 GiB (Q6_K of a 31B would be ~25 GB); llama-swap-config.yaml corrected.
 
   # ---- Creative / roleplay (Mistral-Small-3.2-24B family, share one vision projector) ----
   - file: cydonia-24b.gguf
@@ -260,6 +236,21 @@ ollama_shim:
 # ── Archived / superseded weights (present on disk, NOT served) ──────────────
 # In /opt/llm/models/archive/ — kept for rollback, referenced by NO config.
 archived:
+  - file: archive/qwen3-coder-30b.gguf
+    size_bytes: 17665334432       # ~16.45 GiB
+    sha256: 2841aa314d916434860cfb8990347528dcdfe5c350dbcb9d1461dbee88ff2533
+    note: >
+      retired 2026-07-29 (ai-08): served by llama-swap but had NO LiteLLM alias
+      (gateway-unreachable); redundant with coder=qwen3.6-35b-a3b (bake-off winner).
+      Restore source: unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF ::
+      Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf (match by sha256).
+  - file: archive/devstral-24b.gguf
+    size_bytes: 14548874304       # ~13.55 GiB
+    sha256: d8d48447e4de4c6ffab551d77c48d0898b50ea5d2b7f71ebf48332a7cb58c9a6
+    note: >
+      retired 2026-07-29 (ai-08): served but NO LiteLLM alias (gateway-unreachable).
+      Restore source: unsloth/Devstral-Small-2505-GGUF ::
+      Devstral-Small-2505-UD-Q4_K_XL.gguf (match by sha256).
   - file: archive/Qwen3.6-27B-UD-Q4_K_XL.gguf
     size_bytes: 17612564704       # ~16.40 GiB
     sha256: ff6941ded525b34eb159496762c29dd0ec6e71dc31b74d57e75d871a03eec259
@@ -277,6 +268,6 @@ restore:
     sha256 (skips files already present + intact). Then rebuild the ollama_shim
     with the pull/create commands above. huggingface-cli / hf required.
   discrepancies_flagged:
-    - "qwen3-coder-30b + devstral-24b are in the llama-swap `big` group but have NO LiteLLM alias (direct-only)."
-    - "deckard-heretic quant: config says Q6, header says Q4_K_M (header wins — see its warning)."
-    - "Every /opt/llm/models/*.gguf IS referenced by llama-swap-config.yaml (no orphan served files); archive/ is intentionally unreferenced."
+    - "RESOLVED 2026-07-29 (ai-08): qwen3-coder-30b + devstral-24b (no LiteLLM alias) retired → archive/."
+    - "RESOLVED 2026-07-29 (ai-08): deckard-heretic source pinned (mradermacher static Q4_K_M, sha256-verified) + config label corrected Q6→Q4_K_M."
+    - "Every SERVED /opt/llm/models/*.gguf IS referenced by llama-swap-config.yaml (no orphan served files); archive/ is intentionally unreferenced."

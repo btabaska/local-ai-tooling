@@ -14,7 +14,6 @@
 # ctx-size per model = MEASURED max that loads fully on GPU (bake-off
 # 2026-07-16, q8_0 KV + flash-attn, embedder CPU-pinned, desktop ~1 GiB):
 #   qwen3.6-27b MTP 114688 (23.4G; 131072 OOM)   35b-a3b 262144 = native max (23.3G)
-#   qwen3-coder-30b 98304 (23.4G; 114688 OOM)    devstral 98304 (23.7G; 114688 OOM)
 #   gemma4-qat 73728 (23.7G; 81920 OOM)          deckard 49152 (23.8G; 65536 OOM)
 #   cydonia/dolphin-venice/goetia 73728 (22.8G; 81920 OOM) — identical Q5 24B
 #   qwen2.5-coder 32768 = native max             fast-3b 131072 = native max
@@ -64,25 +63,11 @@ models:
       --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 
-  # HF card: temp 0.7 top_p 0.8 top_k 20 repeat_penalty 1.05.
-  "qwen3-coder-30b":
-    name: "Qwen3 Coder 30B-A3B (MoE Q4, 18G weights)"
-    cmd: |
-      ${srv}
-      --model /models/qwen3-coder-30b.gguf
-      --ctx-size 98304
-      --temp 0.7 --top-p 0.8 --top-k 20 --repeat-penalty 1.05
-    ttl: 120
-
-  # Mistral/unsloth guidance: temp 0.15 (agentic coding). n_ctx_train 131072.
-  "devstral-24b":
-    name: "Devstral Small 24B (dense Q4, 14G weights)"
-    cmd: |
-      ${srv}
-      --model /models/devstral-24b.gguf
-      --ctx-size 98304
-      --temp 0.15
-    ttl: 120
+  # NOTE (ai-08, 2026-07-29): qwen3-coder-30b + devstral-24b were RETIRED here.
+  # Both were served but had NO LiteLLM alias (gateway-unreachable), and the
+  # bake-off already settled the coder slots (coder=35b-a3b, coder-strong=27b).
+  # Their weights moved to /opt/llm/models/archive/ (see models.manifest.yaml
+  # `archived:`) — restore by moving back + re-adding a model block if ever needed.
 
   # ---- Chat ----
   # Gemma 4 official: temp 1.0 top_p 0.95 top_k 64. n_ctx_train 262144 (SWA).
@@ -95,9 +80,12 @@ models:
       --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 
-  # DavidAU card defers to Gemma 4 org settings: temp 1.0 top_p 0.95 top_k 64.
+  # DavidAU DECKARD-HERETIC finetune of Gemma-4-31B, Q4_K_M GGUF by mradermacher
+  # (sha256-verified against models.manifest.yaml, 2026-07-29). DavidAU card
+  # defers to Gemma 4 org settings: temp 1.0 top_p 0.95 top_k 64.
+  # (Prior label said "Q6/20G" — wrong: header is file_type 15 = Q4_K_M, 17.4 GiB.)
   "deckard-heretic":
-    name: "DECKARD-HERETIC 31B Q6 (creative, 20G weights — VRAM-tight)"
+    name: "DECKARD-HERETIC 31B Q4_K_M (creative, 17G weights — VRAM-tight)"
     cmd: |
       ${srv}
       --model /models/deckard-heretic.gguf
@@ -215,8 +203,6 @@ groups:
     members:
       - "qwen3.6-27b"
       - "qwen3.6-35b-a3b"
-      - "qwen3-coder-30b"
-      - "devstral-24b"
       - "gemma4-31b-qat"
       - "deckard-heretic"
       - "cydonia-24b"

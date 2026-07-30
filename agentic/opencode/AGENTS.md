@@ -15,6 +15,13 @@ Python service (FastAPI) + React frontend. Backend in `app/`, frontend in `web/`
 ## Golden rules
 - Prefer **Serena's symbol tools** (`find_symbol`, `get_symbols_overview`, `find_referencing_symbols`)
   over reading whole files. Read a full file only when you must edit it.
+- **Never use `--json` output for your own consumption.** Measured: `rg --json` costs 32x
+  `rg -l` and 3.7x `rg -n` for identical information. Use `rg -l` to locate, `rg -n` to read
+  matches. JSON is for scripts piping to other scripts, never for reading.
+- **A `<verify status="fail">` block in a tool result is a stop-everything signal.** Fix
+  those errors before continuing; never start unrelated work while verification is failing.
+  If an error is genuinely pre-existing and unrelated to your change, say so explicitly
+  rather than silently ignoring it.
 - Make the **smallest change that satisfies the task**. No drive-by refactors.
 - Always run the relevant tests/linters after a change and report the result before declaring done.
 - Never commit secrets. Never run destructive commands without asking.

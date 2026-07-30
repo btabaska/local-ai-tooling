@@ -6,7 +6,10 @@
       "name": "Homelab AI (LiteLLM on rig)",
       "options": {
         "baseURL": "https://llm.tabaska.us/v1",
-        "apiKey": "{env:LITELLM_API_KEY}"
+        "apiKey": "{env:LITELLM_API_KEY}",
+        "timeout": 900000,
+        "headerTimeout": 180000,
+        "chunkTimeout": 300000
       },
       "models": {
         "coder": {
@@ -54,7 +57,10 @@
       "name": "Homelab AI (llama-swap DIRECT - A/B lane, no gateway)",
       "options": {
         "baseURL": "http://192.168.10.12:9292/v1",
-        "apiKey": "not-required-llama-swap-is-unauthenticated"
+        "apiKey": "not-required-llama-swap-is-unauthenticated",
+        "timeout": 900000,
+        "headerTimeout": 180000,
+        "chunkTimeout": 300000
       },
       "models": {
         "qwen3.6-35b-a3b": {
@@ -115,6 +121,9 @@
           "rm -rf*": "ask",
           "sudo*": "ask"
         }
+      },
+      "tools": {
+        "serena*": true
       }
     },
     "plan": {
@@ -125,6 +134,10 @@
       "permission": {
         "edit": "deny",
         "bash": "deny"
+      },
+      "tools": {
+        "serena*": true,
+        "context7*": true
       }
     }
   },
@@ -132,7 +145,8 @@
     "context7": {
       "type": "remote",
       "enabled": true,
-      "url": "https://mcp.context7.com/mcp"
+      "url": "https://mcp.context7.com/mcp",
+      "timeout": 20000
     },
     "serena": {
       "type": "local",
@@ -152,11 +166,23 @@
       ],
       "environment": {
         "PYTHONUNBUFFERED": "1"
-      }
+      },
+      "timeout": 30000
     }
   },
   "permission": {
     "edit": "ask",
     "bash": "ask"
+  },
+  "tools": {
+    "serena*": false,
+    "context7*": false
+  },
+  "subagent_depth": 2,
+  "compaction": {
+    "prune": true
+  },
+  "tool_output": {
+    "max_lines": 600
   }
 }

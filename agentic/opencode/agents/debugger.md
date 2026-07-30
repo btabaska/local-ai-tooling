@@ -8,6 +8,8 @@ permission:
   bash:
     "*": "allow"
     "git push*": "deny"
+tools:
+  serena*: true
 ---
 
 You are a debugging specialist. Follow the **systematic-debugging** skill strictly:

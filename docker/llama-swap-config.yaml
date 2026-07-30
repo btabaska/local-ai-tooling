@@ -63,6 +63,58 @@ models:
       --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 
+  # ---- SWARM profile: same weights, tuned for N concurrent agents (ai-10) ----
+  # ADDITIVE — the single-slot entry above is unchanged and remains the default
+  # `coder`. This one backs the `coder-swarm` LiteLLM alias. Roll back by
+  # deleting this block + its group member + the alias.
+  #
+  # WHY A SECOND PROFILE: `--parallel 1` (required by MTP) is worst-case for a
+  # swarm. Requests queue head-of-line instead of batching. MTP is deliberately
+  # ABSENT here: it needs --parallel 1, and speculative drafting steals FLOPs
+  # once the batch is already saturated.
+  #
+  # VRAM: --ctx-size is the TOTAL KV pool, divided across slots
+  # (per_slot = n_ctx / n_parallel), so KV cost is FLAT in slot count.
+  # Measured from the published config: this model is hybrid linear-attention —
+  # only 10 of 40 layers hold real KV — so q8_0 KV is 10,240 B/token:
+  #     196608 total = 49,152/slot = 1.88 GiB KV   (this profile)
+  #     262144 total = 65,536/slot = 2.50 GiB KV   (the single-slot entry above)
+  # Deliberately set BELOW the 262144 single-slot ceiling: --parallel 4 enlarges
+  # the activation/batch buffers, and the 0.6 GiB saved on KV buys headroom for
+  # them. These are <1 GiB-headroom fits — if this OOMs, drop to 131072 first.
+  #
+  # Measured 2026-07-30 (bakeoff/prefix-cache-probe.py): prefill 1,131 tok/s,
+  # prefix caching CONFIRMED WORKING on this model (19.3x, 94.8% of prefill
+  # eliminated on a repeated 13k-token prefix). That is what makes N agents
+  # sharing one system prompt affordable: only the first pays the ~43s prefill
+  # for a 49k context; the rest hit cache in ~0.6s.
+  "qwen3.6-35b-a3b-swarm":
+    name: "Qwen3.6 35B-A3B SWARM (4 slots x 49k, no MTP)"
+    cmd: |
+      ${srv}
+      --model /models/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
+      --ctx-size 196608
+      --parallel 4
+      --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
+    ttl: 120
+    # OPTIONAL EXTRAS — verify each exists in YOUR build before enabling, since
+    # an unknown flag stops llama-server from starting at all:
+    #   docker compose exec llama-swap /app/llama-server --help | grep -E 'cache-reuse|cache-ram|kv-unified|backend-sampling|reasoning'
+    # Then append to cmd above:
+    #   --cache-reuse 256      # reuse cache across a diverged middle chunk
+    #                          # (agent loops insert tool results mid-prompt);
+    #                          # reportedly defaults to 0 = OFF
+    #   --cache-ram 24576      # MiB of system RAM for prompt-cache checkpoints.
+    #                          # LOW PRIORITY here: at 10,240 B/token the 8 GiB
+    #                          # default already holds ~840k tokens of
+    #                          # checkpoints. Free, but not the lever it would
+    #                          # be on a conventional-attention model.
+    #   --backend-sampling     # moves sampling off the CPU. The 12700K already
+    #                          # gives 10 threads to the embedder, and GPU util
+    #                          # via llama-server is reportedly only ~60% vs
+    #                          # 90-96% under llama-batched-bench, the gap being
+    #                          # CPU-side sampling. Most likely to help at np>=4.
+
   # NOTE (ai-08, 2026-07-29): qwen3-coder-30b + devstral-24b were RETIRED here.
   # Both were served but had NO LiteLLM alias (gateway-unreachable), and the
   # bake-off already settled the coder slots (coder=35b-a3b, coder-strong=27b).
@@ -203,6 +255,7 @@ groups:
     members:
       - "qwen3.6-27b"
       - "qwen3.6-35b-a3b"
+      - "qwen3.6-35b-a3b-swarm"   # ai-10; same weights, --parallel 4 profile
       - "gemma4-31b-qat"
       - "deckard-heretic"
       - "cydonia-24b"

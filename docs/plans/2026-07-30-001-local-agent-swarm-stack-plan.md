@@ -188,6 +188,36 @@ Mitigating factors: the issue is `bug-unconfirmed`/`stale`; it was filed against
 MTP variant, not your 35B-A3B MoE; and llama.cpp moves fast enough that a post-06-21 build
 may carry both fixes.
 
+> ### ✅ RESOLVED 2026-07-30 — prefix caching WORKS on `coder`
+>
+> Run on the rig with `bakeoff/prefix-cache-probe.py`. **[V]**
+>
+> | run | prompt | TTFT |
+> |---|---|---|
+> | P1 | prefix A, cold | **11.52 s** |
+> | P2 | prefix A again | **0.60 s** |
+> | P3 | prefix B, cold (control) | **11.61 s** |
+>
+> 13,034 prompt tokens. Speedup **19.26×**; control ratio **1.01×** — the fresh
+> prefix cost exactly as much as the original, so the P2 gain is caching, not
+> variance or a warmed machine. **94.8% of prefill eliminated.**
+>
+> **Derived: prefill runs at ~1,131 tok/s** (P1 and P3 agree within 0.8%), which
+> is the number the rest of Tier 3 is calibrated against:
+>
+> | context | cost of a cache MISS |
+> |---|---|
+> | 32,768 | 29 s |
+> | 49,152 | **43 s** ← swarm slot size |
+> | 131,072 | 116 s |
+> | 262,144 | 232 s |
+>
+> **llama.cpp #24055 does not reproduce on the 35B-A3B MoE.** Not yet tested on
+> `coder-strong` (27B), which is the variant the issue was actually filed against
+> — worth running before using it in any multi-turn role.
+>
+> <details><summary>Original framing (kept for the record)</summary>
+>
 > ### Experiment 1 (do before anything else, ~15 min)
 > On a current build, load `coder`, send two identical long (~10k token) prompts back to
 > back, and check whether the second prefills from cache or reprocesses. Watch for the
@@ -197,6 +227,8 @@ may carry both fixes.
 > If it fails: options are (a) find a build with both fixes, (b) accept ~1/128 tool-call
 > loss with client-side retry on the older build, or (c) move `coder` to a non-hybrid
 > model — at the cost of 4× the KV, which changes every number in §2.
+>
+> </details>
 
 ---
 
@@ -611,6 +643,50 @@ errors**. All three agent files verified to retain exactly 2 frontmatter fences,
 **Not yet observed:** the tool-budget change alters what each agent can see, and no swarm
 run has exercised it. Watch for a subagent complaining it cannot find a symbol tool — that
 would mean a grant is missing or the glob is wrong.
+
+### Tier 3 (partial) — implemented 2026-07-30, **NOT yet applied to the running stack**
+
+Unblocked by Experiment 1. Everything here is **additive** — no existing model entry,
+alias, or flag was modified, so the running stack is unaffected until a restart.
+
+| # | Change | File |
+|---|---|---|
+| 16 | New `qwen3.6-35b-a3b-swarm` entry: same weights, `--parallel 4 --ctx-size 196608` (49,152/slot), **no MTP** (it requires `--parallel 1`, and drafting steals FLOPs once the batch is saturated). Added to the `big` group. | `docker/llama-swap-config.yaml` |
+| — | New `coder-swarm` alias → the swarm entry | `docker/litellm-config.yaml` |
+| — | `coder-swarm` model exposed with a **49,152 context limit** — the *per-slot* budget, not the 196,608 total. Getting this wrong would let one agent claim the whole pool. | both `opencode.json`, `clients/pi-models.json` |
+
+**Why 196,608 and not the 262,144 single-slot ceiling:** KV is flat in slot count
+(`per_slot = n_ctx / n_parallel`), so 4×49k costs **1.88 GiB** vs 2.50 GiB at 262k. The
+0.6 GiB saved buys headroom for the larger activation/batch buffers that `--parallel 4`
+needs. These are <1 GiB-headroom fits — **if it OOMs, drop to 131072 first.**
+
+**Two Tier 3 items were DOWNGRADED by the measurement** (both were sized on assumptions
+that the probe refuted):
+
+- **Item 19 (slot save/restore around GPU yields): now optional, low priority.** Lane 04
+  estimated a yield costs "~2–3 min of re-prefill." At 1,131 tok/s and a realistic 49k
+  swarm slot it is **~43 s**, and only on the first agent after the yield — the rest hit
+  cache. Gaming yields are occasional, not per-turn. Not worth building yet.
+- **Item 17 (`--cache-ram`): now marginal.** Lane 04 sized it against conventional KV. At
+  10,240 B/token the 8 GiB default already holds **~840k tokens** of checkpoints. Still
+  free to raise, but it is not the lever it would be on a non-hybrid model.
+
+**Unverified flags were deliberately NOT enabled.** `--cache-reuse`, `--cache-ram`,
+`--backend-sampling`, and the `--reasoning` toggle are written as a commented block with a
+one-line `--help | grep` check, because **an unknown flag stops `llama-server` from
+starting at all** — and their build, not upstream docs, is what decides. Enable after
+checking.
+
+**Verification performed:** both YAML files parse; the swarm entry has `--parallel 4`,
+`--ctx-size 196608`, and **no** `spec-type` (MTP); the **original single-slot entry is
+byte-unchanged**; the `big` group lists the new member; `coder-swarm` resolves to
+`openai/qwen3.6-35b-a3b-swarm`; both opencode configs still validate with 0 real errors;
+`pi-models.json` is valid JSON.
+
+⚠ **Applying requires a rig-side restart** (`docker compose up -d llama-swap litellm`) and
+should be done when nothing is gaming or running ComfyUI, since a fresh `coder` load at
+these ceilings can OOM against desktop VRAM use. Rollback = delete the swarm entry, its
+group member, and the alias.
 
 **Not yet done / next increment** (deliberately outside Tier 0):
 - The two items deferred from this pass — `interleaved` on the coder models, and pruning

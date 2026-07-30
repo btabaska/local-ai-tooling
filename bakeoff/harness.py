@@ -18,7 +18,13 @@ import argparse, json, os, shutil, subprocess, sys, tempfile, time, urllib.reque
 
 BASE = os.environ.get("BAKEOFF_BASE", "http://localhost:9292/v1")
 API_KEY = os.environ.get("BAKEOFF_KEY", "none")
-MODELS = ["qwen3.6-27b", "qwen3.6-35b-a3b", "qwen3-coder-30b", "devstral-24b"]
+# Served models only. qwen3-coder-30b + devstral-24b were RETIRED in ai-08 and
+# their weights moved to /opt/llm/models/archive/, so llama-swap 404s on them and
+# `--all` failed on 2 of 4. Set BAKEOFF_INCLUDE_ARCHIVED=1 to re-bench them after
+# restoring the weights (see docker/models.manifest.yaml `archived:`).
+MODELS = ["qwen3.6-27b", "qwen3.6-35b-a3b"]
+if os.environ.get("BAKEOFF_INCLUDE_ARCHIVED"):
+    MODELS += ["qwen3-coder-30b", "devstral-24b"]
 TASKS = ["bugfix", "feature"]
 MAX_TURNS = 20
 HERE = os.path.dirname(os.path.abspath(__file__))

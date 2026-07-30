@@ -532,6 +532,57 @@ on every delegation — a trap on this rig **[A]**.
 positives from §1.1 remain). `top_p` confirmed present in `AgentConfig`. `harness.py`
 byte-compiles. Both JSON files parse.
 
+### Tier 1 — implemented 2026-07-30
+
+Deployment target confirmed by the owner: opencode runs on **both** the rig (CachyOS,
+accessed via SSH under Orca) **and** a MacBook (Orca + opencode + pi, calling the model
+APIs remotely). Everything below is therefore cross-platform.
+
+**The plugin API was verified against real type definitions** before any code was written
+— `npm pack @opencode-ai/plugin@1.18.10` and `@opencode-ai/sdk@1.18.10`, reading
+`dist/index.d.ts`. This upgraded several **[A]** claims to **[V]**:
+
+| Hook | Status | Exact signature (from `Hooks` interface) |
+|---|---|---|
+| `tool.execute.after` | **[V]** | `(input: {tool, sessionID, callID, args}, output: {title, output, metadata})` |
+| `event` | **[V]** | `(input: {event: Event})`; `EventSessionIdle = {type:"session.idle", properties:{sessionID}}` |
+| `tool.definition` | **[V]** | `(input: {toolID}, output: {description, parameters})` — *"Modify tool definitions sent to LLM"*. **Absent from the docs page**; lane 07 was right that the documented event list is not the hook list. |
+| `chat.params` | **[V]** | `(…, output: {temperature, topP, topK, maxOutputTokens, options})` |
+| `permission.ask` | **[V]** | `(input: Permission, output: {status: "ask"\|"deny"\|"allow"})` — also undocumented |
+| `client.session.prompt` | **[V]** | `{path:{id}, body:{parts:[{type:"text",text}]}}` |
+| Plugin factory input | **[V]** | `{client, project, directory, worktree, serverUrl, $: BunShell}` |
+
+| # | Change | Files |
+|---|---|---|
+| 7a | `interleaved: {field:"reasoning_content"}` on `coder`, `coder-strong` **and** both direct-lane equivalents | both configs |
+| 7b | `MODELS` pruned to served models only; retired `qwen3-coder-30b`/`devstral-24b` moved behind `BAKEOFF_INCLUDE_ARCHIVED=1` | `bakeoff/harness.py` |
+| 7 | `"lsp": true` + `"formatter": true` | both configs |
+| 8 | `tool.execute.after` verify hook — debounced 4 s, 45 s hard timeout, truncated to 40 lines / 4000 chars, **silent on pass**, fires only on edit/write/patch/multiedit | `agentic/opencode/plugins/local-llm.ts` |
+| 9 | `event: session.idle` Stop hook — re-verifies on idle, pushes back via `client.session.prompt`, bounded at **2 nudges/session**, fire-and-forget so it never blocks the handler | same file |
+| 10 | `tool.definition` trimmer — keeps the first paragraph of over-long `serena`/`context7` descriptions, caps at 400 chars, **leaves `parameters` untouched** (trimming those would break tool calls) | same file |
+| + | Cross-platform LSP/tooling installer (Arch `pacman`/`paru` + macOS `brew`), `--dry-run`/`--minimal`, resolves-check + next-steps output | `scripts/install-code-intel.sh` |
+
+**Verify-command resolution** (first match wins; plugin disables itself silently if none):
+`$OPENCODE_VERIFY_CMD` → `.opencode/verify.sh` → `just verify-fast` (only if a justfile
+declares it) → auto-detected `ruff` / `tsc` **only when the binary actually resolves** →
+none. The resolves-check is what makes it safe to auto-load globally: in a repo like this
+one, with no Python/TS toolchain, it stays completely silent rather than erroring on every
+edit.
+
+**Verification performed:** `tsc --noEmit` in **strict mode** against the real
+`@opencode-ai/plugin@1.18.10` types → **exit 0**. Both configs re-validated against the
+live schema → **0 real errors**. `harness.py` byte-compiles. `install-code-intel.sh`
+passes `bash -n` and its `--dry-run` correctly detects Darwin.
+
+**Not yet wired (requires a host to run on):**
+- `scripts/install-code-intel.sh` has **not been executed** on either host — on this
+  MacBook, `rg`, `fd`, `ast-grep`, and `just` are all currently missing.
+- The plugin is **not deployed**; it lives in the repo template dir. Deploy with
+  `cp agentic/opencode/plugins/local-llm.ts ~/.config/opencode/plugins/`.
+- No repo yet defines a `verify-fast` recipe, so the hook is inert until one does.
+  End-to-end confirmation (break a typecheck, assert a `<verify status="fail">` block
+  appears in the tool result) is still outstanding.
+
 **Not yet done / next increment** (deliberately outside Tier 0):
 - The two items deferred from this pass — `interleaved` on the coder models, and pruning
   the retired models from `harness.py:MODELS` — were **promoted into Tier 1 as items 7a and

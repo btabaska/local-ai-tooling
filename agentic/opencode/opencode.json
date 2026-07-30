@@ -16,6 +16,9 @@
           "limit": {
             "context": 131072,
             "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
           }
         },
         "coder-strong": {
@@ -25,6 +28,9 @@
           "limit": {
             "context": 98304,
             "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
           }
         },
         "fast": {
@@ -58,6 +64,9 @@
           "limit": {
             "context": 131072,
             "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
           }
         },
         "qwen3.6-27b": {
@@ -67,6 +76,9 @@
           "limit": {
             "context": 98304,
             "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
           }
         },
         "qwen2.5-coder-7b": {
@@ -86,6 +98,8 @@
   "instructions": [
     "~/.config/opencode/AGENTS.md"
   ],
+  "lsp": true,
+  "formatter": true,
   "agent": {
     "build": {
       "mode": "primary",

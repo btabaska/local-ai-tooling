@@ -39,8 +39,17 @@ Make the project's tests pass. Rules:
 
 
 def call_llm(model, messages):
+    # Sampler: default to OMITTING temperature so llama-swap's per-model
+    # HF-card values apply (coder/coder-strong: --temp 0.6 --top-p 0.95
+    # --top-k 20 --min-p 0). The previous hardcoded 0.1 silently overrode
+    # them, so the 2026-07-15 bake-off was NOT measured at the sampler the
+    # stack actually serves. Set BAKEOFF_TEMP/BAKEOFF_TOP_P to sweep.
     body = {"model": model, "messages": messages, "tools": TOOLS,
-            "temperature": 0.1, "max_tokens": 4096}
+            "max_tokens": 4096}
+    if os.environ.get("BAKEOFF_TEMP"):
+        body["temperature"] = float(os.environ["BAKEOFF_TEMP"])
+    if os.environ.get("BAKEOFF_TOP_P"):
+        body["top_p"] = float(os.environ["BAKEOFF_TOP_P"])
     req = urllib.request.Request(BASE + "/chat/completions",
                                  data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json",

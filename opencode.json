@@ -11,7 +11,8 @@
       "models": {
         "coder": {
           "name": "coder - Qwen3.6 35B-A3B MoE (default; 131k ctx)",
-          "tools": true,
+          "tool_call": true,
+          "temperature": true,
           "limit": {
             "context": 131072,
             "output": 8192
@@ -19,7 +20,8 @@
         },
         "coder-strong": {
           "name": "coder-strong - Qwen3.6 27B MTP (~50 t/s, 98k ctx)",
-          "tools": true,
+          "tool_call": true,
+          "temperature": true,
           "limit": {
             "context": 98304,
             "output": 8192
@@ -27,7 +29,8 @@
         },
         "fast": {
           "name": "fast - Qwen2.5-Coder 7B (quick/cheap)",
-          "tools": true,
+          "tool_call": true,
+          "temperature": true,
           "limit": {
             "context": 32768,
             "output": 4096
@@ -35,7 +38,45 @@
         },
         "utility": {
           "name": "utility - Llama3.2 3B (titles/tags)",
-          "tools": false
+          "tool_call": false,
+          "temperature": true
+        }
+      }
+    },
+    "llamaswap": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Homelab AI (llama-swap DIRECT - A/B lane, no gateway)",
+      "options": {
+        "baseURL": "http://192.168.10.12:9292/v1",
+        "apiKey": "not-required-llama-swap-is-unauthenticated"
+      },
+      "models": {
+        "qwen3.6-35b-a3b": {
+          "name": "DIRECT coder - Qwen3.6 35B-A3B MoE",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 131072,
+            "output": 8192
+          }
+        },
+        "qwen3.6-27b": {
+          "name": "DIRECT coder-strong - Qwen3.6 27B MTP",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 98304,
+            "output": 8192
+          }
+        },
+        "qwen2.5-coder-7b": {
+          "name": "DIRECT fast - Qwen2.5-Coder 7B",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          }
         }
       }
     }
@@ -49,7 +90,8 @@
     "build": {
       "mode": "primary",
       "model": "litellm/coder",
-      "temperature": 0.1,
+      "temperature": 0.6,
+      "top_p": 0.95,
       "permission": {
         "edit": "allow",
         "webfetch": "allow",
@@ -64,7 +106,8 @@
     "plan": {
       "mode": "primary",
       "model": "litellm/coder-strong",
-      "temperature": 0.1,
+      "temperature": 0.6,
+      "top_p": 0.95,
       "permission": {
         "edit": "deny",
         "bash": "deny"
@@ -83,11 +126,13 @@
       "command": [
         "uvx",
         "--from",
-        "git+https://github.com/oraios/serena",
+        "serena-agent==1.6.1",
         "serena",
         "start-mcp-server",
         "--context",
-        "ide-assistant",
+        "ide",
+        "--enable-web-dashboard",
+        "false",
         "--project",
         "{cwd}"
       ],
@@ -95,9 +140,6 @@
         "PYTHONUNBUFFERED": "1"
       }
     }
-  },
-  "tools": {
-    "skills*": true
   },
   "permission": {
     "edit": "ask",

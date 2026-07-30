@@ -95,11 +95,39 @@ models:
       --model /models/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
       --ctx-size 196608
       --parallel 4
-      --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
+      --reasoning off
+      --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0
     ttl: 120
-    # OPTIONAL EXTRAS — verify each exists in YOUR build before enabling, since
-    # an unknown flag stops llama-server from starting at all:
-    #   docker compose exec llama-swap /app/llama-server --help | grep -E 'cache-reuse|cache-ram|kv-unified|backend-sampling|reasoning'
+    # REASONING IS OFF HERE, AND THE SAMPLER CHANGES WITH IT (ai-10, 2026-07-30).
+    # Flag verified present in this build: `--reasoning [on|off|auto]`, plus
+    # `--reasoning-budget N` and env LLAMA_ARG_REASONING.
+    #
+    # Why off on the SWARM profile only:
+    #   - Measured on this rig: a max_tokens=5 request returned
+    #     finish_reason="length" with content="" and the entire budget spent in
+    #     reasoning_content. Output tokens are the scarce resource in a swarm
+    #     (~0.4-0.7M tok/hr rig-wide), so thinking is a direct throughput tax.
+    #   - Two documented llama.cpp failures are reasoning-triggered: #20260
+    #     (prose before <tool_call> fails the PEG grammar -> HTTP 500) and
+    #     #20809 (tool calls land in reasoning_content with finish_reason
+    #     length). Both hit agent loops specifically.
+    #   - It fits the intended topology: think in the SPINE (plan/decompose on
+    #     `coder` / `coder-strong`, reasoning ON), execute in the RIBS. Ribs run
+    #     pre-decomposed tasks; they do not need to re-derive the design.
+    # `coder` (the single-slot entry above) keeps reasoning ON and stays 0.6/0.95.
+    #
+    # SAMPLER: Qwen3.x recommends different values per mode — thinking 0.6/0.95,
+    # non-thinking (instruct) 0.7/0.80. Changing --reasoning WITHOUT changing the
+    # sampler is a half-migration, so both moved together.
+    # ⚠ Any client agent pointed at `coder-swarm` must therefore send temp 0.7 /
+    #   top_p 0.8, or send nothing and inherit these. The existing `build`/`plan`
+    #   agents send 0.6/0.95 — correct for `coder`/`coder-strong`, WRONG here.
+    # Middle ground if quality suffers: swap `--reasoning off` for
+    # `--reasoning-budget 512` (bounded thinking) and revert the sampler.
+    #
+    # OTHER OPTIONAL EXTRAS — verify each exists before enabling, since an
+    # unknown flag stops llama-server from starting at all:
+    #   docker compose exec llama-swap /app/llama-server --help | grep -E 'cache-reuse|cache-ram|kv-unified|backend-sampling'
     # Then append to cmd above:
     #   --cache-reuse 256      # reuse cache across a diverged middle chunk
     #                          # (agent loops insert tool results mid-prompt);

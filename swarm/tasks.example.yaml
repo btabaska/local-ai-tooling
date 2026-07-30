@@ -1,0 +1,69 @@
+# .swarm/tasks.yaml — worked example. Copy into the TARGET repo as .swarm/tasks.yaml.
+#
+# THE RULE THAT MATTERS: any two tasks with no dependency path between them will
+# run concurrently, so their `owns` globs must not overlap. `swarm.py validate`
+# proves this by expanding the globs against the real tree — run it before
+# starting, every time.
+#
+# Decomposition is a SPINE job: run plan/decompose single-threaded on `coder` or
+# `coder-strong` (reasoning ON) and have it emit this file. The ribs that execute
+# these tasks run on `coder-swarm` (reasoning OFF, 4 slots). Thinking happens
+# once, in the spine; the ribs execute.
+
+tasks:
+  # ---- wave 1: no deps, all disjoint, all start together ---------------------
+  - id: db-schema
+    title: "Postgres schema + migration for users and sessions"
+    goal: |
+      Create the initial schema: `users` (id, email unique, created_at) and
+      `sessions` (id, user_id fk, token unique, expires_at). Write a forward
+      migration. No ORM models yet — that is a separate task.
+    owns:
+      - "migrations/**"
+      - "db/schema.sql"
+    verify: "just verify-fast"
+
+  - id: api-types
+    title: "Shared request/response TypeScript types"
+    goal: |
+      Define the wire types for auth endpoints: LoginRequest, LoginResponse,
+      SessionUser. Types only — no handlers, no imports from server code.
+    owns:
+      - "packages/types/**"
+
+  - id: ci-pipeline
+    title: "CI workflow running lint, typecheck and tests"
+    goal: |
+      Add a CI workflow that runs `just verify-fast` then the test suite on push.
+      Do not touch application code.
+    owns:
+      - ".github/workflows/**"
+
+  # ---- wave 2: each waits on wave 1, still disjoint from its siblings --------
+  - id: db-models
+    title: "ORM models mapping the schema"
+    goal: "Map the users and sessions tables to ORM models with type hints."
+    deps: [db-schema]
+    owns:
+      - "app/models/**"
+
+  - id: auth-endpoints
+    title: "Login and logout HTTP handlers"
+    goal: |
+      Implement POST /auth/login and POST /auth/logout against the shared types.
+      Import types from packages/types; do NOT edit them — api-types owns that.
+    deps: [api-types, db-models]
+    owns:
+      - "app/routes/auth.py"
+      - "app/routes/__init__.py"
+
+  # NOTE this deliberately depends on auth-endpoints rather than owning the same
+  # files. If it owned "app/routes/**" with no dep, `validate` would reject the
+  # whole file — which is the point.
+  - id: auth-tests
+    title: "Integration tests for the auth flow"
+    goal: "Cover login success, bad password, expired session, and logout."
+    deps: [auth-endpoints]
+    owns:
+      - "tests/test_auth.py"
+    notes: "Tests only. If a bug turns up in the handlers, report it — do not fix it here."

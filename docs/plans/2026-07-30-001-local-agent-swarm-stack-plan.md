@@ -349,6 +349,42 @@ single biggest capability gap vs Claude Code, and it is closable.
     <600 tokens of schema, never return whole pages — `bash-variables.html` alone is ~12k
     tokens). CLI-first because **pi has no MCP in core** but does have `bash`. **[A]**
 
+> ### ❌ CORRECTED 2026-07-30 — Orca already ships all of this
+>
+> **Lane 08's central claim was wrong**, and everything in this section that
+> proposed building orchestration was built on it. Verbatim from the report:
+> *"No surveyed tool does DAG + `owns[]`-disjointness + WIP limits + budget caps
+> against a local endpoint... the ~200 lines nobody ships."* It was marked **[A]**
+> and I implemented against it without checking.
+>
+> One command refutes it — and it was available the whole time:
+>
+> ```sh
+> orca skills list        # -> an `orchestration` skill, first-class
+> orca skills get orchestration
+> ```
+>
+> Orca 1.4.161 ships: task DAGs (`task-create --deps`), the ready set
+> (`task-list --ready`), dispatch (`dispatch --inject`), blocking waits
+> (`check --wait --types worker_done,escalation`), concurrency caps
+> (`run --max-concurrent`), decision gates, and a retry bound (3 consecutive
+> failures circuit-breaks a task to `failed`). Statuses: `pending`, `ready`,
+> `dispatched`, `completed`, `failed`, `blocked`.
+>
+> **`swarm/` was deleted.** It reimplemented every one of those. The only thing it
+> added that Orca lacks is file-level collision proof — and that belongs in the
+> task spec text, not a second tool with its own state store.
+>
+> A second defect in the same work: the first `rib.md` told workers to "report in
+> two sentences and stop." Orca's protocol requires a `worker_done` message
+> carrying `taskId`/`dispatchId`. That agent **would have hung every coordinator**
+> on `check --wait` until timeout. Rewritten around the real protocol.
+>
+> **Replacement:** `agentic/orca/README.md` — how to drive Orca's native
+> orchestration with this rig's local models. **Process lesson:** when a research
+> agent says "no tool does X," check the tool that is already installed before
+> building X.
+
 ### Tier 5 — swarm topology
 
 26. **"Sequential spine, narrow parallel ribs, deterministic gates."** Single-threaded

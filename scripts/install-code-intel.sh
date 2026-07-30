@@ -48,8 +48,8 @@ have() { command -v "$1" >/dev/null 2>&1; }
 #                reading whole files
 # just         : the single verify-command entry point the plugin looks for
 # shellcheck   : this repo is mostly shell; the only linter that applies here
-CORE_ARCH=(ripgrep fd ast-grep just shellcheck bash-language-server yaml-language-server taplo-cli)
-CORE_BREW=(ripgrep fd ast-grep just shellcheck bash-language-server yaml-language-server taplo)
+CORE_ARCH=(ripgrep fd ast-grep just shellcheck bash-language-server yaml-language-server taplo-cli python-yaml)
+CORE_BREW=(ripgrep fd ast-grep just shellcheck bash-language-server yaml-language-server taplo pyyaml)
 
 # --- language set: only meaningful in repos that use them ---------------------
 LANG_ARCH=(pyright ruff gopls rust-analyzer typescript-language-server marksman)

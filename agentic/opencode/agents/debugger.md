@@ -1,8 +1,8 @@
 ---
 description: Investigates bugs and failures via reproduce → isolate → hypothesize → fix → verify. Can edit and run commands.
 mode: subagent
-model: ollama/devstral:24b
-temperature: 0.1
+model: litellm/coder
+temperature: 0.6
 permission:
   edit: allow
   bash:

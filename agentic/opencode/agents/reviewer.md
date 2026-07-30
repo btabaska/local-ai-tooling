@@ -1,8 +1,8 @@
 ---
 description: Read-only multi-lens code reviewer (correctness, security, performance, architecture, simplicity). Never edits.
 mode: subagent
-model: ollama/code:opencode
-temperature: 0.1
+model: litellm/coder
+temperature: 0.6
 permission:
   edit: deny
   bash: deny

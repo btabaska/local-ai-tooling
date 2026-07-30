@@ -683,10 +683,45 @@ byte-unchanged**; the `big` group lists the new member; `coder-swarm` resolves t
 `openai/qwen3.6-35b-a3b-swarm`; both opencode configs still validate with 0 real errors;
 `pi-models.json` is valid JSON.
 
-⚠ **Applying requires a rig-side restart** (`docker compose up -d llama-swap litellm`) and
-should be done when nothing is gaming or running ComfyUI, since a fresh `coder` load at
-these ceilings can OOM against desktop VRAM use. Rollback = delete the swarm entry, its
-group member, and the alias.
+⚠ **Applying requires a rig-side restart.** Rollback = delete the swarm entry, its group
+member, and the alias.
+
+> #### Deployment checklist for adding ANY LiteLLM alias (learned the hard way, 2026-07-30)
+>
+> 1. **`restart`, not `up -d`.** Both configs are bind-mounted
+>    (`./llama-swap-config.yaml:/app/config.yaml:ro`,
+>    `./litellm-config.yaml:/app/config.yaml:ro`), so the new file is already inside the
+>    container — but each process only reads it at **startup**. `docker compose up -d`
+>    recreates a container only when its *definition* changes (image/env/ports/volumes);
+>    a changed file body is invisible to it, so the container is left running with the old
+>    config. Use:
+>    ```sh
+>    cd docker && docker compose restart llama-swap litellm
+>    ```
+>    Note the compose file lives in **`docker/`**, not the repo root.
+>
+> 2. **Extend the scoped virtual key — this step is easy to miss.** `LITELLM_API_KEY` is a
+>    virtual key scoped to `coder`/`coder-strong`/`fast`/`utility` (§13 of the knowledge
+>    base). A newly added alias is **not** in that scope, so LiteLLM filters it out of
+>    `/v1/models` *and* rejects requests to it — which looks identical to "the config
+>    didn't load". Diagnose by comparing master vs scoped key:
+>    ```sh
+>    curl -s localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY" | grep coder
+>    curl -s localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_API_KEY"    | grep coder
+>    ```
+>    If master sees it and the scoped key does not, extend the key:
+>    ```sh
+>    curl -s -X POST localhost:4000/key/update \
+>      -H "Authorization: Bearer $LITELLM_MASTER_KEY" -H "Content-Type: application/json" \
+>      -d '{"key":"'"$LITELLM_API_KEY"'","models":["coder","coder-strong","coder-swarm","fast","utility"]}'
+>    ```
+>    Also update `CODING_LITELLM_KEY`'s scope wherever it is provisioned, so a key rebuild
+>    does not silently drop the alias again.
+>
+> 3. **A model appearing in `/v1/models` does NOT mean it loads.** llama-swap lists entries
+>    from parsed config; the process only spawns on first request. For this profile the
+>    real risk is `--parallel 4` at `--ctx-size 196608` OOMing on a <1 GiB-headroom card.
+>    Smoke-test with an actual completion and watch VRAM (see Experiment 2 below).
 
 **Not yet done / next increment** (deliberately outside Tier 0):
 - The two items deferred from this pass — `interleaved` on the coder models, and pruning

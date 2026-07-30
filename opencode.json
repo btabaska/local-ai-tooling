@@ -24,6 +24,18 @@
             "field": "reasoning_content"
           }
         },
+        "coder-swarm": {
+          "name": "coder-swarm - Qwen3.6 35B-A3B, 4 parallel slots (49k/slot)",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 49152,
+            "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
         "coder-strong": {
           "name": "coder-strong - Qwen3.6 27B MTP (~50 t/s, 98k ctx)",
           "tool_call": true,

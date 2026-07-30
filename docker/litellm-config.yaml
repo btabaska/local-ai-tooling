@@ -27,6 +27,17 @@ model_list:
   - model_name: code
     litellm_params: *coder
 
+  # ---- Swarm coder: same weights as `coder`, 4 parallel slots (ai-10) ----
+  # Use when running 2-4 concurrent agents. Point every agent in a swarm at THIS
+  # alias — mixing aliases inside one swarm forces a ~19 GB llama-swap reload on
+  # every delegation, since both entries are `big`/exclusive.
+  # Single deep agent -> `coder`. Quality-critical single task -> `coder-strong`.
+  - model_name: coder-swarm
+    litellm_params:
+      model: openai/qwen3.6-35b-a3b-swarm
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
   # ---- Strong/slow coder for long or gnarly tasks ----
   - model_name: coder-strong
     litellm_params:

@@ -8,6 +8,8 @@ permission:
   bash:
     "*": "allow"
     "git push*": "deny"
+tools:
+  serena*: true
 ---
 
 You are a test engineer. Your job is to raise confidence in a change through tests.

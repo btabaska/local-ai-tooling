@@ -583,6 +583,35 @@ passes `bash -n` and its `--dry-run` correctly detects Darwin.
   End-to-end confirmation (break a typecheck, assert a `<verify status="fail">` block
   appears in the tool result) is still outstanding.
 
+### Tier 2 — implemented 2026-07-30
+
+Owner confirmed Tier 1 passed validation on-host (serena starts clean under `--context ide`
+at the pinned 1.6.1; the verify loop fires). Tier 2 proceeded on that basis.
+
+**MCP tool naming verified before writing any allowlist:** tools are registered as
+**`servername_toolname`**; globs support `*` and `?`; per-agent `tools` overrides the global
+map; MCP `timeout` defaults to **5000 ms** and is per-server **[V]**.
+
+| # | Change | Detail |
+|---|---|---|
+| 11 | **Tool budget: default-deny MCP, opt in per agent** | Global `{"serena*": false, "context7*": false}`. `build` → serena only (editing needs symbol nav, not cloud docs). `plan` → serena + context7 (the one phase where cloud docs earn their slots). All three subagents → serena only. **context7 is now off everywhere except `plan`** — it was previously loaded into every agent and every subagent, multiplying its cost across a swarm. |
+| 12 | `subagent_depth: 2` | Default **1** blocks subagents from launching subagents — i.e. blocks nested swarms outright. |
+| 13 | `compaction.prune: true` (default false), `tool_output.max_lines: 600` (default 2000) | Context hygiene; long tool dumps evict working memory on a 131k window. |
+| 14 | Provider `timeout` 900 s / `headerTimeout` 180 s / `chunkTimeout` 300 s; MCP `timeout` serena 30 s, context7 20 s | Deliberately **generous**. The failure being fixed is llama-swap swaps and long prefills presenting as indistinguishable hangs; a too-tight timeout causes spurious aborts, which is the worse failure mode. `headerTimeout` covers a ~23 GB model swap, `chunkTimeout` covers prefill-to-first-token on a long context. |
+| 15 | AGENTS.md: no-`--json` rule + `<verify>` stop-everything rule | `rg --json` costs **32×** `rg -l` and 3.7× `rg -n` for identical information. Second rule teaches the model what the Tier 1 hook's output means. |
+
+**Subagent grants were required, not optional:** the global default-deny applies to
+subagents too, so each of `debugger`/`reviewer`/`tester` needed an explicit
+`tools: {serena*: true}` in frontmatter or they would have silently lost symbol navigation.
+
+**Verification performed:** both configs revalidated against the live schema → **0 real
+errors**. All three agent files verified to retain exactly 2 frontmatter fences, one
+`model:` key pointing at `litellm/coder`, and the serena grant.
+
+**Not yet observed:** the tool-budget change alters what each agent can see, and no swarm
+run has exercised it. Watch for a subagent complaining it cannot find a symbol tool — that
+would mean a grant is missing or the glob is wrong.
+
 **Not yet done / next increment** (deliberately outside Tier 0):
 - The two items deferred from this pass — `interleaved` on the coder models, and pruning
   the retired models from `harness.py:MODELS` — were **promoted into Tier 1 as items 7a and

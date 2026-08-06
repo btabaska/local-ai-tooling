@@ -153,7 +153,11 @@
         "fleet*": true,
         "playwright*": true,
         "comfyui*": true,
-        "openzim*": true
+        "openzim*": true,
+        "trilium_search_notes": true,
+        "trilium_get_note": true,
+        "trilium_get_note_subtree": true,
+        "trilium_list_attributes": true
       }
     },
     "plan": {
@@ -171,7 +175,11 @@
         "fleet*": true,
         "playwright*": true,
         "comfyui*": true,
-        "openzim*": true
+        "openzim*": true,
+        "trilium_search_notes": true,
+        "trilium_get_note": true,
+        "trilium_get_note_subtree": true,
+        "trilium_list_attributes": true
       }
     }
   },
@@ -232,6 +240,24 @@
         "/mnt/nas-zim"
       ],
       "timeout": 30000
+    },
+    "trilium": {
+      // lai-16: OVDEN13/trilium-mcp v0.1.5 static Go binary (pinned via
+      // scripts/fetch-trilium-mcp.sh) over the read-27 Trilium trial ETAPI.
+      // READ-MOSTLY: only the 4 read tools are enabled per-agent (build/plan);
+      // all write tools stay off (young MCP). TRILIUM_TOKEN <- rig env
+      // TRILIUM_ETAPI_TOKEN (docker/.env, exported in ~/.bashrc). Retires with
+      // the Trilium trial.
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "/home/btabaska/Documents/GitHub/local-ai-tooling/docker/trilium-mcp/trilium-mcp-linux-amd64"
+      ],
+      "environment": {
+        "TRILIUM_URL": "https://trilium.tabaska.us",
+        "TRILIUM_TOKEN": "{env:TRILIUM_ETAPI_TOKEN}"
+      },
+      "timeout": 30000
     }
   },
   "permission": {
@@ -244,7 +270,8 @@
     "fleet*": false,
     "playwright*": false,
     "comfyui*": false,
-    "openzim*": false
+    "openzim*": false,
+    "trilium*": false
   },
   "subagent_depth": 2,
   "compaction": {

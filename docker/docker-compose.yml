@@ -215,7 +215,14 @@ services:
       # Mount your repos so serena (and any fs/git MCP) can reach them at /repos/<name>.
       # Set REPOS_PATH in .env; defaults to the common GitHub checkout dir.
       - ${REPOS_PATH:-/home/btabaska/Documents/GitHub}:/repos
+      # lai-16: pinned trilium-mcp static binary for the stdio bridge.
+      - ./trilium-mcp:/opt/trilium-mcp:ro
     command: ["--host", "0.0.0.0", "--port", "8000", "--config", "/app/config/config.json"]
+    environment:
+      # lai-16: trilium-mcp reads these; mcpo merges the container env into
+      # each stdio subprocess ({**os.environ, **cfg.env}). Token is gitignored.
+      - TRILIUM_URL=https://trilium.tabaska.us
+      - TRILIUM_TOKEN=${TRILIUM_ETAPI_TOKEN}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

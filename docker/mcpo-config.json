@@ -67,6 +67,10 @@
         "advanced",
         "/zim"
       ]
+    },
+    "trilium": {
+      "//": "lai-16: OVDEN13/trilium-mcp v0.1.5 (static Go binary, pinned; scripts/fetch-trilium-mcp.sh) bridging the read-27 Trilium trial ETAPI. READ-MOSTLY: OWUI is filtered to read tools only in seed-owui-tool-servers.sh; write tools stay opencode build/plan-agent-only. TRILIUM_URL + TRILIUM_TOKEN come from the mcpo container env (docker-compose.yml <- docker/.env TRILIUM_ETAPI_TOKEN), inherited by this stdio subprocess. Retires WITH the trial.",
+      "command": "/opt/trilium-mcp/trilium-mcp-linux-amd64"
     }
   }
 }

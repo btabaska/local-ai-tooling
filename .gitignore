@@ -26,3 +26,7 @@ backups/
 .env.bak*
 docker/.env.bak*
 bakeoff/results/*.log
+
+# lai-16: pinned trilium-mcp static binary (rebuildable via
+# scripts/fetch-trilium-mcp.sh; bind-mounted into mcpo).
+docker/trilium-mcp/trilium-mcp-linux-amd64

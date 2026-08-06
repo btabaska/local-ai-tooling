@@ -18,11 +18,14 @@ conv hq/flux2-klein-base-hq.api.json  flux2-klein-base-hq.json       "Flux.2 Kle
 # NSFW
 conv z-image-nsfw-cyberrealistic.api.json          z-image-nsfw-cyberrealistic.json  "Z-Image NSFW — CyberRealistic (uncensored TE)"
 conv hq/z-image-nsfw-moody-wild-base.api.json      z-image-nsfw-moody-wild-base.json "Z-Image NSFW — Moody Wild (BASE 40-step)"
+conv pornmaster-anime-il.api.json                  pornmaster-anime-il.json          "PornMaster-Anime IL-V5 — Illustrious (Euler a/30/cfg5)"
+conv pornmaster-krea2-turbo.api.json               pornmaster-krea2-turbo.json       "PornMaster Krea2 V2 Turbo — Flux-Krea (8-step/cfg1; cfg1.5 enables neg)"
 
 echo "=== deploy to GUI sidebar ==="
 cp -f ui/z-image-turbo-realistic.json ui/noobai-xl-anime.json ui/flux2-klein-9b.json \
       ui/z-image-hq.json ui/noobai-hq.json ui/flux2-klein-base-hq.json \
       ui/z-image-nsfw-cyberrealistic.json ui/z-image-nsfw-moody-wild-base.json \
+      ui/pornmaster-anime-il.json ui/pornmaster-krea2-turbo.json \
       /opt/comfyui/user/default/workflows/
 echo "sidebar now has:"; ls /opt/comfyui/user/default/workflows/
 echo "=== validate one converted UI file is well-formed ==="

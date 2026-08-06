@@ -154,6 +154,7 @@
         "playwright*": true,
         "comfyui*": true,
         "openzim*": true,
+        "openstreetmap*": true,
         "trilium_search_notes": true,
         "trilium_get_note": true,
         "trilium_get_note_subtree": true,
@@ -176,6 +177,7 @@
         "playwright*": true,
         "comfyui*": true,
         "openzim*": true,
+        "openstreetmap*": true,
         "trilium_search_notes": true,
         "trilium_get_note": true,
         "trilium_get_note_subtree": true,
@@ -258,6 +260,24 @@
         "TRILIUM_TOKEN": "{env:TRILIUM_ETAPI_TOKEN}"
       },
       "timeout": 30000
+    },
+    "openstreetmap": {
+      // lai-17: cyanheads/openstreetmap-mcp-server@0.3.6 (pinned). 6 tools
+      // (search_places/reverse_geocode/lookup_objects/query_nearby/query_bbox/
+      // query_raw) over PUBLIC OSM Nominatim + Overpass. The offline Photon
+      // geocoder (maps.tabaska.us) is NOT Nominatim-API-compatible, so the map
+      // viewer consumes Photon directly and this MCP stays the ONLINE OSM
+      // enrichment tool. opencode-NATIVE only: mcpo can't bridge it (its pinned
+      // container Node 22 < the server's required Node >=24) and it is NOT in
+      // OWUI, so the OWUI visible-tool budget stays 40/40.
+      "type": "local",
+      "enabled": true,
+      "command": ["npx", "-y", "@cyanheads/openstreetmap-mcp-server@0.3.6"],
+      "environment": {
+        "MCP_TRANSPORT_TYPE": "stdio",
+        "OSM_USER_AGENT": "going-analogue-homelab/1.0 (lai-17)"
+      },
+      "timeout": 30000
     }
   },
   "permission": {
@@ -271,6 +291,7 @@
     "playwright*": false,
     "comfyui*": false,
     "openzim*": false,
+    "openstreetmap*": false,
     "trilium*": false
   },
   "subagent_depth": 2,

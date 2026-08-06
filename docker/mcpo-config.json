@@ -57,6 +57,16 @@
       "//": "ai-01 read-only fleet-inspection tools (fleet-mcp.service on the rig host). Same tools the ollmcp ops agent uses.",
       "type": "streamable-http",
       "url": "http://host.docker.internal:8765/mcp"
+    },
+    "openzim": {
+      "//": "lai-13: openzim-mcp v2.5.5 (pinned; libzim-native Xapian search over the NAS ZIM library). --mode advanced = 8 tools; OWUI is filtered to 3 in seed-owui-tool-servers.sh, non-OWUI consumers (verification check openzim-mcp-search) get all 8. Reads the rig RO CIFS mount /mnt/nas-zim, bind-mounted ro at /zim (docker-compose.yml). Package pins mcp<2 itself (no --with guard needed).",
+      "command": "uvx",
+      "args": [
+        "openzim-mcp==2.5.5",
+        "--mode",
+        "advanced",
+        "/zim"
+      ]
     }
   }
 }

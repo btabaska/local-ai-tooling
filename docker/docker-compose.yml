@@ -199,6 +199,7 @@ services:
   # sequential-thinking) to OWUI, and its /fleet + /context7 passthroughs stay up
   # for non-OWUI consumers. time+fetch pin mcp<2 in mcpo-config.json (SDK 2.0
   # renamed McpError -> MCPError and broke both at the 2026-08-03 reboot).
+  # lai-13 (2026-08-06): + openzim (openzim-mcp==2.5.5, advanced mode) over /zim.
   mcpo:
     # lai-07 (2026-08-06): pinned by digest (was rolling :main; rev 788ff92,
     # image built 2026-02-27).
@@ -209,6 +210,8 @@ services:
       - "8000:8000"
     volumes:
       - ./mcpo-config.json:/app/config/config.json:ro
+      # lai-13: NAS ZIM library (zim share -> rig /mnt/nas-zim RO CIFS mount) for openzim-mcp.
+      - /mnt/nas-zim:/zim:ro
       # Mount your repos so serena (and any fs/git MCP) can reach them at /repos/<name>.
       # Set REPOS_PATH in .env; defaults to the common GitHub checkout dir.
       - ${REPOS_PATH:-/home/btabaska/Documents/GitHub}:/repos

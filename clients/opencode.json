@@ -152,7 +152,8 @@
         "context7*": true,
         "fleet*": true,
         "playwright*": true,
-        "comfyui*": true
+        "comfyui*": true,
+        "openzim*": true
       }
     },
     "plan": {
@@ -169,7 +170,8 @@
         "context7*": true,
         "fleet*": true,
         "playwright*": true,
-        "comfyui*": true
+        "comfyui*": true,
+        "openzim*": true
       }
     }
   },
@@ -218,6 +220,18 @@
       "enabled": true,
       "url": "http://cachyos.tailb31641.ts.net:9000/mcp",
       "timeout": 20000
+    },
+    "openzim": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "uvx",
+        "openzim-mcp==2.5.5",
+        "--mode",
+        "advanced",
+        "/mnt/nas-zim"
+      ],
+      "timeout": 30000
     }
   },
   "permission": {
@@ -229,7 +243,8 @@
     "context7*": false,
     "fleet*": false,
     "playwright*": false,
-    "comfyui*": false
+    "comfyui*": false,
+    "openzim*": false
   },
   "subagent_depth": 2,
   "compaction": {

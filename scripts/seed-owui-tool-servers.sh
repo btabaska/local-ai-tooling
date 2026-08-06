@@ -30,15 +30,22 @@
 #   serena via its own MCP client.
 #   mcpo ALSO still serves /fleet and /context7 passthroughs for non-OWUI
 #   consumers (mcpo-config.json unchanged) — OWUI just no longer uses them.
+#   openzim (lai-13): openzim-mcp v2.5.5 advanced mode (8 tools) over the NAS
+#   ZIM library (rig /mnt/nas-zim RO CIFS -> /zim in the mcpo container).
+#   Filtered to 3 of 8 chat-shaped tools: zim_query (the NL intelligent tool,
+#   best router for small models) + zim_search + zim_get. browse/links/
+#   metadata/get_section/health stay opencode-only (opencode spawns its own
+#   stdio openzim-mcp on the rig — full advanced set).
 #
 # Tool budget: fleet 9 + context7 2 + serena 10 + time 2 + fetch 1 +
-# sequential-thinking 1 + comfyui 3 + playwright 8 = 36 OWUI-visible tools
+# sequential-thinking 1 + comfyui 3 + playwright 8 + openzim 3 = 39 OWUI-visible tools
 # (< the ~40 cap that degrades small-model routing). Guarded by the mini checks
 # `owui-mcp-tools` (budget) + `image-browser-mcp` (lai-11 servers + filters).
 #
 # NOTE: chat models reference these by stable ids (server:time, server:fetch,
 # server:serena, server:sequential-thinking, server:mcp:fleet,
-# server:mcp:context7, server:mcp:comfyui, server:mcp:playwright) in
+# server:mcp:context7, server:mcp:comfyui, server:mcp:playwright,
+# server:openzim) in
 # model.meta.toolIds — keep info.id values stable.
 #
 # NOTE filter semantics: OWUI matches with is_string_allowed = name ENDSWITH
@@ -64,6 +71,9 @@ payload=$(cat <<'JSON'
  {"url": "http://mcpo:8000/serena", "path": "openapi.json", "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "tool_get_symbols_overview_post,tool_find_symbol_post,tool_find_referencing_symbols_post,tool_find_implementations_post,tool_find_declaration_post,tool_get_diagnostics_for_file_post,tool_read_memory_post,tool_list_memories_post,tool_onboarding_post,tool_initial_instructions_post", "access_grants": []},
   "info": {"id": "serena", "name": "serena", "description": "mcpo stdio bridge: semantic code intel (project /repos/app). Filtered to the 10 read-only tools (lai-11); editing tools are opencode-only."}, "spec_type": "url", "spec": ""},
+ {"url": "http://mcpo:8000/openzim", "path": "openapi.json", "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
+  "config": {"enable": true, "function_name_filter_list": "tool_zim_query_post,tool_zim_search_post,tool_zim_get_post", "access_grants": []},
+  "info": {"id": "openzim", "name": "openzim", "description": "mcpo stdio bridge: openzim-mcp v2.5.5 over the NAS ZIM library (RO, /mnt/nas-zim). Filtered to 3 of 8 (lai-13): zim_query (NL) + zim_search + zim_get; browse/links/metadata/section/health are opencode-only."}, "spec_type": "url", "spec": ""},
  {"url": "http://mcpo:8000/sequential-thinking", "path": "openapi.json", "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "", "access_grants": []},
   "info": {"id": "sequential-thinking", "name": "sequential thinking", "description": "mcpo stdio bridge: reasoning scratchpad"}, "spec_type": "url", "spec": ""},

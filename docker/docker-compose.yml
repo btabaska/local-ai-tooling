@@ -4,7 +4,10 @@
 #
 #   Bring up:   docker compose up -d
 #   Logs:       docker compose logs -f
-#   Update:     docker compose pull && docker compose up -d
+#   Update:     images are digest-pinned (lai-07) -- bump the @sha256 on the
+#               service's image: line (docker manifest inspect <repo>:<tag>),
+#               then docker compose up -d. A bare `docker compose pull` is a
+#               no-op by design; nothing rolls silently anymore.
 #   Stop:       docker compose down          (data persists in named volumes)
 #
 # Endpoints after startup (replace host with your AI_HOST / server IP):
@@ -33,7 +36,9 @@ services:
 
   # ---- LiteLLM: unified OpenAI-compatible gateway + auth + aliases ----
   litellm:
-    image: ghcr.io/berriai/litellm:main-latest
+    # lai-07 (2026-08-06): pinned by digest (was rolling :main-latest; rev 229159c,
+    # image built 2026-07-16). Re-resolve + bump to update.
+    image: ghcr.io/berriai/litellm:main-latest@sha256:4d00db88fc8aba3e2c1cfaddbce6ae81f6de3b8826148e428ecbcc99b0a0f62b
     container_name: litellm
     restart: unless-stopped
     depends_on:
@@ -56,7 +61,10 @@ services:
 
   # ---- Open WebUI: the chat interface ----
   open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+    # lai-07 (2026-08-06): pinned by digest = v0.10.2 (was rolling :main; image built
+    # 2026-07-01). The 0.11.0 upgrade is its own task (lai-21): bump the digest there
+    # and re-verify the PersistentConfig env-vs-DB seeds at any upgrade.
+    image: ghcr.io/open-webui/open-webui:main@sha256:a26effeb220e132482bf7e0560b3404843e7bc40d23051144e062960df8df6b0
     container_name: open-webui
     restart: unless-stopped
     ports:
@@ -142,7 +150,9 @@ services:
   # for non-OWUI consumers. time+fetch pin mcp<2 in mcpo-config.json (SDK 2.0
   # renamed McpError -> MCPError and broke both at the 2026-08-03 reboot).
   mcpo:
-    image: ghcr.io/open-webui/mcpo:main
+    # lai-07 (2026-08-06): pinned by digest (was rolling :main; rev 788ff92,
+    # image built 2026-02-27).
+    image: ghcr.io/open-webui/mcpo:main@sha256:1e82c9555c19e50b80745705f32b47a2647589f35279527b5118ecd3a71bd467
     container_name: mcpo
     restart: unless-stopped
     ports:
@@ -164,7 +174,9 @@ services:
   # /home on purpose: restic must not back up re-pullable weights).
   # UI/activity: http://rig:9292/ui   Unload-all: POST /api/models/unload
   llama-swap:
-    image: ghcr.io/mostlygeek/llama-swap:cuda
+    # lai-07 (2026-08-06): pinned by digest (was rolling :cuda; llama.cpp b10015,
+    # image built 2026-07-16). Re-resolve + bump to update.
+    image: ghcr.io/mostlygeek/llama-swap:cuda@sha256:e92ecef6998891cfaf36c1f2768dd7db43eaea6667c27d646271e43058550fee
     container_name: llama-swap
     restart: unless-stopped
     ports:
@@ -275,7 +287,9 @@ services:
   # llama-swap (rig has no nvidia docker runtime). BASE_DIRECTORY=/basedir -> models in
   # /opt/comfyui/models (outside /home, like /opt/llm). API + Manager UI on :8188.
   comfyui:
-    image: mmartial/comfyui-nvidia-docker:latest
+    # lai-07 (2026-08-06): pinned by digest (was rolling :latest; image built
+    # 2026-06-06).
+    image: mmartial/comfyui-nvidia-docker:latest@sha256:144dd59ffc29a7c384020eededde1dbfb66d81c6e072c912d51e58becfd3cd00
     container_name: comfyui
     restart: unless-stopped
     ports:

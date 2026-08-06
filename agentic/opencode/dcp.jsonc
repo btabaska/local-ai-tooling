@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Opencode-DCP/opencode-dynamic-context-pruning/master/dcp.schema.json",
+  // lai-05: compress limits lowered from the absolute defaults (100000/50000) to
+  // PERCENTAGES of the active model's context window so they fit every local
+  // llama-swap window (fast 32k .. coder 256k). The old absolute defaults could
+  // never trigger sanely on coder-swarm (49k/slot) or fast (32k).
+  "enabled": true,
+  // Plugin version is pinned in opencode.json ("@tarquinen/opencode-dcp@3.1.14");
+  // keep DCP's own self-update off too.
+  "autoUpdate": false,
+  "pruneNotification": "minimal",
+  "compress": {
+    "maxContextLimit": "70%",
+    "minContextLimit": "40%"
+  }
+}

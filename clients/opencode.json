@@ -1,33 +1,66 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "plugin": [
+    "opencode-plugin-litellm@0.8.0",
+    "cc-safety-net@1.0.6",
+    "@tarquinen/opencode-dcp@3.1.14",
+    "opencode-notify@0.3.1",
+    "opencode-ntfy.sh@1.1.0",
+    "opencode-token-tracker@1.7.1"
+  ],
   "provider": {
     "litellm": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Homelab AI (LiteLLM on rig)",
       "options": {
         "baseURL": "https://llm.tabaska.us/v1",
-        "apiKey": "{env:LITELLM_API_KEY}"
+        "apiKey": "{env:LITELLM_API_KEY}",
+        "timeout": 900000,
+        "headerTimeout": 180000,
+        "chunkTimeout": 300000
       },
       "models": {
         "coder": {
-          "name": "coder - Qwen3.6 35B-A3B MoE (default; 131k ctx)",
-          "tools": true,
+          "name": "coder - Qwen3.6 35B-A3B MoE (default; 256k ctx)",
+          "tool_call": true,
+          "temperature": true,
           "limit": {
-            "context": 131072,
+            "context": 262144,
             "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
+        "coder-swarm": {
+          "name": "coder-swarm - Qwen3.6 35B-A3B, 4 parallel slots (49k/slot)",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 49152,
+            "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
           }
         },
         "coder-strong": {
-          "name": "coder-strong - Qwen3.6 27B MTP (~50 t/s, 98k ctx)",
-          "tools": true,
+          "name": "coder-strong - Qwen3.6 27B MTP (~50 t/s, 112k ctx)",
+          "tool_call": true,
+          "temperature": true,
           "limit": {
-            "context": 98304,
+            "context": 114688,
             "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
           }
         },
         "fast": {
           "name": "fast - Qwen2.5-Coder 7B (quick/cheap)",
-          "tools": true,
+          "tool_call": true,
+          "temperature": true,
           "limit": {
             "context": 32768,
             "output": 4096
@@ -35,7 +68,58 @@
         },
         "utility": {
           "name": "utility - Llama3.2 3B (titles/tags)",
-          "tools": false
+          "tool_call": false,
+          "temperature": true,
+          "limit": {
+            "context": 131072,
+            "output": 4096
+          }
+        }
+      }
+    },
+    "llamaswap": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Homelab AI (llama-swap DIRECT - A/B lane, no gateway)",
+      "options": {
+        "baseURL": "http://192.168.10.12:9292/v1",
+        "apiKey": "not-required-llama-swap-is-unauthenticated",
+        "timeout": 900000,
+        "headerTimeout": 180000,
+        "chunkTimeout": 300000
+      },
+      "models": {
+        "qwen3.6-35b-a3b": {
+          "name": "DIRECT coder - Qwen3.6 35B-A3B MoE",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 262144,
+            "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
+        "qwen3.6-27b": {
+          "name": "DIRECT coder-strong - Qwen3.6 27B MTP",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 114688,
+            "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
+        "qwen2.5-coder-7b": {
+          "name": "DIRECT fast - Qwen2.5-Coder 7B",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          }
         }
       }
     }
@@ -45,11 +129,14 @@
   "instructions": [
     "~/.config/opencode/AGENTS.md"
   ],
+  "lsp": true,
+  "formatter": true,
   "agent": {
     "build": {
       "mode": "primary",
       "model": "litellm/coder",
-      "temperature": 0.1,
+      "temperature": 0.6,
+      "top_p": 0.95,
       "permission": {
         "edit": "allow",
         "webfetch": "allow",
@@ -59,15 +146,26 @@
           "rm -rf*": "ask",
           "sudo*": "ask"
         }
+      },
+      "tools": {
+        "serena*": true,
+        "context7*": true,
+        "fleet*": true
       }
     },
     "plan": {
       "mode": "primary",
       "model": "litellm/coder-strong",
-      "temperature": 0.1,
+      "temperature": 0.6,
+      "top_p": 0.95,
       "permission": {
         "edit": "deny",
         "bash": "deny"
+      },
+      "tools": {
+        "serena*": true,
+        "context7*": true,
+        "fleet*": true
       }
     }
   },
@@ -75,14 +173,51 @@
     "context7": {
       "type": "remote",
       "enabled": true,
-      "url": "https://mcp.context7.com/mcp"
+      "url": "https://mcp.context7.com/mcp",
+      "timeout": 20000
+    },
+    "fleet": {
+      "type": "remote",
+      "enabled": true,
+      "url": "http://cachyos.tailb31641.ts.net:8765/mcp",
+      "timeout": 15000
+    },
+    "serena": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "uvx",
+        "--from",
+        "serena-agent==1.6.1",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide",
+        "--enable-web-dashboard",
+        "false",
+        "--project",
+        "{cwd}"
+      ],
+      "environment": {
+        "PYTHONUNBUFFERED": "1"
+      },
+      "timeout": 30000
     }
-  },
-  "tools": {
-    "skills*": true
   },
   "permission": {
     "edit": "ask",
     "bash": "ask"
+  },
+  "tools": {
+    "serena*": false,
+    "context7*": false,
+    "fleet*": false
+  },
+  "subagent_depth": 2,
+  "compaction": {
+    "prune": true
+  },
+  "tool_output": {
+    "max_lines": 600
   }
 }

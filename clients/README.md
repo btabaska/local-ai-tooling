@@ -6,16 +6,54 @@ Client configs that point local coding agents at the rig's **LiteLLM** gateway
 
 | File | Deploy to | Tool |
 |---|---|---|
-| `opencode.json` (repo root — the maintained copy) | `~/.config/opencode/opencode.json` | opencode |
+| `opencode.json` (repo root — the maintained copy; `clients/opencode.json` + `agentic/opencode/opencode.json` are kept byte-identical to it) | `~/.config/opencode/opencode.json` | opencode |
+| `../agentic/opencode/dcp.jsonc` | `~/.config/opencode/dcp.jsonc` | opencode (DCP plugin) |
+| `../agentic/opencode/notification-ntfy.json` | `~/.config/opencode/notification-ntfy.json` | opencode (ntfy plugin) |
 | `pi-models.json` | `~/.pi/agent/models.json` | pi.dev |
 | `pi-auth.example.json` | `~/.pi/agent/auth.json` (chmod 0600) | pi.dev |
 
+## opencode pin + plugins (lai-05)
+
+- **Pinned version: `clients/opencode.version` (1.18.10)** on BOTH machines. Mac installs via
+  Homebrew (`brew upgrade opencode && brew pin opencode`); rig via the standalone installer
+  (`~/.opencode/bin/opencode upgrade $(cat clients/opencode.version)`). `"autoupdate": false`
+  in opencode.json stops self-updates. The 1.0.x custom-provider forwarding regressions
+  (anomalyco/opencode #5674/#5210/#971) are gone in 1.18.10 — re-verify with a real
+  `opencode run -m litellm/utility …` after ANY version bump.
+- **Plugin array (pinned in opencode.json):** `opencode-plugin-litellm@0.8.0` (auto-discovers
+  the key's aliases from `/v1/models`; non-destructive merge over the hand-curated blocks),
+  `cc-safety-net@1.0.6` (zero-LLM AST destructive-command guard),
+  `@tarquinen/opencode-dcp@3.1.14` (context pruning — limits are PERCENTAGES in `dcp.jsonc`
+  so they fit every local window, 32k fast … 256k coder), `opencode-notify@0.3.1` (desktop
+  popups), `opencode-ntfy.sh@1.1.0` (push → `https://ntfy.tabaska.us` topic **`opencode`**;
+  token file `~/.config/opencode/ntfy-token`, chmod 600, from vault `ntfy.opencode_token`),
+  `opencode-token-tracker@1.7.1` (usage log under `~/.config/opencode/logs/token-tracker/`).
+  **Curation rule (single-GPU llama-swap): nothing that fires background/parallel LLM calls** —
+  do NOT add oh-my-opencode/oh-my-openagent, swarm/orchestration plugins, vibeguard, or
+  opencode-supermemory.
+- **`limit.context` mirrors `docker/llama-swap-config.yaml` `--ctx-size`** (coder 262144,
+  coder-swarm 49152 = 196608/4 slots, coder-strong 114688, fast 32768, utility 131072).
+  If a ctx-size changes there, change opencode.json to match.
+- **MCP + per-agent tool globs:** servers = context7 (hosted), `fleet` (rig fleet-mcp
+  streamable-HTTP, `http://cachyos.tailb31641.ts.net:8765/mcp` — tailnet name so the Mac
+  reaches it off-LAN too), serena (local uvx; Mac needs `brew install uv`). ALL tool globs
+  are **off globally** (`"tools": {"serena*"/"context7*"/"fleet*": false}`) and re-enabled
+  per agent: build/plan get all three; subagents (debugger/reviewer/tester/rib in
+  `agentic/opencode/agents/`) stay serena-only. opencode has no lazy tool loading — the
+  glob allowlist is the token knob. mcpo's OpenAPI bridges are NOT wired here (opencode
+  speaks MCP, mcpo speaks OpenAPI; the stdio servers can be added as `type: local` later).
+- Drift guard: verification check `opencode-config-parity` (foss-setup
+  `checks.d/local-ai.yaml`) asserts rig live config == repo root copies + pinned version;
+  `opencode-run-probe` (daily) does a real `opencode run` through LiteLLM — its 07:15
+  "Agent Idle" ping on the `opencode` ntfy topic is EXPECTED (doubles as a heartbeat).
+
 ## The key (ai-09)
 
-All three read a LiteLLM **virtual key scoped to coder/coder-strong/fast/utility**,
+All three read a LiteLLM **virtual key scoped to coder/coder-strong/coder-swarm/fast/utility**,
 exported as `LITELLM_API_KEY`:
 
-- `docker/.env` → `CODING_LITELLM_KEY` (canonical on-rig source; vault `ai_stack.litellm_coding_key`).
+- `docker/.env` → `CODING_LITELLM_KEY` (canonical on-rig source; vault `ai_stack.litellm_coding_key`
+  — backfilled into the vault by lai-05; the Mac exports the same key from `~/.zshenv`).
 - `~/.bashrc` **and** `~/.bash_profile` export `LITELLM_API_KEY` from that value — both,
   because `~/.bashrc` early-returns for non-interactive shells while Orca spawns agents
   through `~/.bash_profile`. pi's `auth.json` (`$LITELLM_API_KEY`) and opencode's

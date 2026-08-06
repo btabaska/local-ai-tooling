@@ -1,5 +1,14 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "plugin": [
+    "opencode-plugin-litellm@0.8.0",
+    "cc-safety-net@1.0.6",
+    "@tarquinen/opencode-dcp@3.1.14",
+    "opencode-notify@0.3.1",
+    "opencode-ntfy.sh@1.1.0",
+    "opencode-token-tracker@1.7.1"
+  ],
   "provider": {
     "litellm": {
       "npm": "@ai-sdk/openai-compatible",
@@ -13,11 +22,11 @@
       },
       "models": {
         "coder": {
-          "name": "coder - Qwen3.6 35B-A3B MoE (default; 131k ctx)",
+          "name": "coder - Qwen3.6 35B-A3B MoE (default; 256k ctx)",
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 131072,
+            "context": 262144,
             "output": 8192
           },
           "interleaved": {
@@ -37,11 +46,11 @@
           }
         },
         "coder-strong": {
-          "name": "coder-strong - Qwen3.6 27B MTP (~50 t/s, 98k ctx)",
+          "name": "coder-strong - Qwen3.6 27B MTP (~50 t/s, 112k ctx)",
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 98304,
+            "context": 114688,
             "output": 8192
           },
           "interleaved": {
@@ -60,7 +69,11 @@
         "utility": {
           "name": "utility - Llama3.2 3B (titles/tags)",
           "tool_call": false,
-          "temperature": true
+          "temperature": true,
+          "limit": {
+            "context": 131072,
+            "output": 4096
+          }
         }
       }
     },
@@ -80,7 +93,7 @@
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 131072,
+            "context": 262144,
             "output": 8192
           },
           "interleaved": {
@@ -92,7 +105,7 @@
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 98304,
+            "context": 114688,
             "output": 8192
           },
           "interleaved": {
@@ -135,7 +148,9 @@
         }
       },
       "tools": {
-        "serena*": true
+        "serena*": true,
+        "context7*": true,
+        "fleet*": true
       }
     },
     "plan": {
@@ -149,7 +164,8 @@
       },
       "tools": {
         "serena*": true,
-        "context7*": true
+        "context7*": true,
+        "fleet*": true
       }
     }
   },
@@ -159,6 +175,12 @@
       "enabled": true,
       "url": "https://mcp.context7.com/mcp",
       "timeout": 20000
+    },
+    "fleet": {
+      "type": "remote",
+      "enabled": true,
+      "url": "http://cachyos.tailb31641.ts.net:8765/mcp",
+      "timeout": 15000
     },
     "serena": {
       "type": "local",
@@ -188,7 +210,8 @@
   },
   "tools": {
     "serena*": false,
-    "context7*": false
+    "context7*": false,
+    "fleet*": false
   },
   "subagent_depth": 2,
   "compaction": {

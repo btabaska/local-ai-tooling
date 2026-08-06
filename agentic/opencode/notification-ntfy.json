@@ -1,0 +1,8 @@
+{
+  "backend": {
+    "server": "https://ntfy.tabaska.us",
+    "topic": "opencode",
+    "token": "{file:~/.config/opencode/ntfy-token}",
+    "priority": "default"
+  }
+}

@@ -15,6 +15,7 @@
 #   LiteLLM API    http://AI_HOST:4000            (OpenAI-compatible)
 #   LiteLLM UI     http://AI_HOST:4000/ui         (login: admin / your master key)
 #   mcpo tools     http://AI_HOST:8000/docs
+#   LDR research   http://AI_HOST:5000            (local-deep-research, lai-08)
 
 services:
   # ---- Postgres: backs LiteLLM virtual keys + spend tracking (not exposed to LAN) ----
@@ -326,8 +327,47 @@ services:
     volumes:
       - ./gpu-arbiter.py:/app/gpu-arbiter.py:ro
 
+  # ---- local-deep-research: iterative deep-research assistant (lai-08, 2026-08-06) ----
+  # LearningCircuit/local-deep-research, pinned 1.10.1 BY DIGEST (re-resolve + bump to
+  # update). CPU-only container; inference rides LiteLLM (provider openai_endpoint,
+  # scoped virtual key) -> llama-swap on the shared GPU, so research is best-effort
+  # under VRAM contention exactly like the journaling coach: by day the card is free,
+  # at night Immich ML may hold it and coder-strong can OOM (llama-swap "exited
+  # prematurely" -> LiteLLM 500). Search = the mini SearXNG JSON API (lai-01).
+  # Web UI :5000 -> ldr.tabaska.us via the mini Caddy; auth = LDR app login
+  # (per-user AES-256/SQLCipher DBs, registration open — LAN/tailnet posture like
+  # lumiverse). NOTE the LDR_* vars below are settings OVERRIDES: a NON-EMPTY env
+  # var beats the per-user settings DB on every boot and locks the field in the UI
+  # (unlike OWUI PersistentConfig). Model changes = edit here, not in the UI.
+  local-deep-research:
+    image: localdeepresearch/local-deep-research:1.10.1@sha256:422230f302c2aa96844c2c575e23c4d40544651a6e8eba853ea84460892afc88
+    container_name: local-deep-research
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      LDR_WEB_HOST: 0.0.0.0
+      LDR_WEB_PORT: "5000"
+      LDR_DATA_DIR: /data
+      # LLM: LiteLLM as a custom OpenAI-compatible endpoint; research model =
+      # coder-strong (qwen3.6-27b, the strong local model). The scoped key also
+      # allows "fast" for lightweight-step use if a role split lands upstream.
+      LDR_LLM_PROVIDER: openai_endpoint
+      LDR_LLM_OPENAI_ENDPOINT_URL: http://litellm:4000/v1
+      LDR_LLM_OPENAI_ENDPOINT_API_KEY: ${LDR_LITELLM_KEY}
+      LDR_LLM_MODEL: coder-strong
+      # Search: the mini SearXNG (JSON formats enabled server-side, lai-01).
+      LDR_SEARCH_TOOL: searxng
+      LDR_SEARCH_ENGINE_WEB_SEARXNG_DEFAULT_PARAMS_INSTANCE_URL: http://192.168.10.2:8888
+    volumes:
+      - ldr_data:/data
+      - ldr_scripts:/scripts
+
+
 volumes:
   litellm_pgdata:
   open_webui_data:
   lumiverse-data:
   marinara-data:
+  ldr_data:
+  ldr_scripts:

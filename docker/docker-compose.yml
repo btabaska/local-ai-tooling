@@ -85,6 +85,12 @@ services:
       OPENAI_API_KEY: ${OPENWEBUI_LITELLM_KEY}
       # Title/tag generation on the tiny utility alias instead of the chat model:
       TASK_MODEL_EXTERNAL: utility
+      # Open Terminal code-exec backend (lai-09): seeds the terminal-server
+      # connection on a FRESH volume only (PersistentConfig — DB wins once set;
+      # live wiring done via POST /api/v1/configs/terminal_servers). The .env
+      # seed line ships commented, so default to a harmless empty list — OWUI
+      # json.loads() this at import and an empty string would crash it.
+      TERMINAL_SERVER_CONNECTIONS: "[]"
       # ---- RAG embeddings via LiteLLM `embed` alias (nomic-embed-text) ----
       RAG_EMBEDDING_ENGINE: openai
       RAG_OPENAI_API_BASE_URL: http://litellm:4000/v1

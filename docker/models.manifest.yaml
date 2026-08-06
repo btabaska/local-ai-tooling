@@ -39,8 +39,8 @@ meta:
     17: Q5_K_M
     25: IQ4_NL
   notes:
-    - "Total served weights ~130 GB across 11 GGUFs (10 chat/code/creative + 1 shared vision projector). qwen3-coder-30b + devstral-24b retired 2026-07-29 → archive/ (~30 GB)."
-    - "One big model is resident at a time (llama-swap `big` group, exclusive+swap); the embedder is CPU-pinned + persistent. See rig-gpu-vram-contention."
+    - "Total served weights ~131 GB across 12 GGUFs (10 chat/code/creative + 1 shared vision projector + 1 reranker). qwen3-coder-30b + devstral-24b retired 2026-07-29 → archive/ (~30 GB)."
+    - "One big model is resident at a time (llama-swap `big` group, exclusive+swap); the embedder + reranker are CPU-pinned (embed group). See rig-gpu-vram-contention."
 
 # ── Served GGUFs (each is a `--model` in llama-swap-config.yaml) ──────────────
 served:
@@ -212,6 +212,24 @@ served:
       base_model: Qwen/Qwen3-Embedding-0.6B
       quantized_by: Qwen (official GGUF)
       confidence: verified   # filename preserved; Qwen publishes this GGUF
+
+  # ---- Reranker (CPU, on-demand — lai-02) ----
+  # MUST stay the official ggml-org conversion: community Qwen3-Reranker GGUFs
+  # are broken (near-zero relevance_score for everything). Guarded by the
+  # `rerank-spread` verification check (asserts a real score spread, not liveness).
+  - file: qwen3-reranker-0.6b-q8_0.gguf
+    llama_swap_model: qwen3-reranker
+    litellm_alias: [rerank]
+    role: RAG second-stage reranker (/v1/rerank, sigmoid 0..1 scores, CPU-only)
+    quant: Q8_0                   # header file_type 7; matches filename
+    size_bytes: 639153184         # ~0.60 GiB
+    sha256: 22c9979ce4fbcdc5acdc310c6641c32797eff1aa980b8f7a2db8a8ea23429a48
+    source:
+      repo: ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF
+      file: qwen3-reranker-0.6b-q8_0.gguf
+      base_model: Qwen/Qwen3-Reranker-0.6B
+      quantized_by: ggml-org (official llama.cpp conversion)
+      confidence: verified   # filename preserved; sha256 = HF LFS oid
 
 # ── Ollama shim models (Ollama's OWN store, NOT /opt/llm/models) ─────────────
 # Demoted to a 3-model compat shim on :11434 for HA Assist + Obsidian only

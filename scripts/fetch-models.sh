@@ -24,11 +24,13 @@ MODELS_DIR="${MODELS_DIR:-/opt/llm/models}"
 DRY_RUN=0
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
 
-# Resolve a HF download CLI (new `hf` or legacy `huggingface-cli`).
-if command -v huggingface-cli >/dev/null 2>&1; then
-  HF() { huggingface-cli download "$@"; }
-elif command -v hf >/dev/null 2>&1; then
+# Resolve a HF download CLI. Prefer `hf`: huggingface_hub >=1.x DEPRECATED
+# `huggingface-cli` (it prints a warning and refuses to run — observed live
+# 2026-08-05), so the legacy binary is only a fallback for old installs.
+if command -v hf >/dev/null 2>&1; then
   HF() { hf download "$@"; }
+elif command -v huggingface-cli >/dev/null 2>&1; then
+  HF() { huggingface-cli download "$@"; }
 else
   echo "ERROR: need huggingface-cli or hf on PATH (pipx install 'huggingface_hub[cli]')" >&2
   exit 1
@@ -142,6 +144,15 @@ fetch Qwen/Qwen3-Embedding-0.6B-GGUF \
       Qwen3-Embedding-0.6B-Q8_0.gguf \
       Qwen3-Embedding-0.6B-Q8_0.gguf \
       06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439
+
+# --- Reranker (lai-02) ---
+# OFFICIAL ggml-org conversion ONLY — community Qwen3-Reranker GGUFs score
+# near-zero for everything (broken classification-head wiring). If this sha256
+# ever mismatches, do NOT substitute another repo's file.
+fetch ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF \
+      qwen3-reranker-0.6b-q8_0.gguf \
+      qwen3-reranker-0.6b-q8_0.gguf \
+      22c9979ce4fbcdc5acdc310c6641c32797eff1aa980b8f7a2db8a8ea23429a48
 
 echo
 echo "== Ollama shim (separate store; not /opt/llm/models) =="

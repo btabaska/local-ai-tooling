@@ -100,6 +100,20 @@ model_list:
       api_base: http://llama-swap:8080/v1
       api_key: none
 
+  # ---- Rerank (RAG second-stage scoring, lai-02) ----
+  # llama.cpp/llama-swap serves a Jina/Cohere-style rerank API; LiteLLM's
+  # `infinity` provider speaks that response shape and appends /rerank to
+  # api_base -> http://llama-swap:8080/v1/rerank. Consume via POST /rerank
+  # (or /v1/rerank) on LiteLLM :4000 — NOT chat/completions. Scores are
+  # sigmoid-normalized 0..1. OWUI (lai-03) bypasses LiteLLM and
+  # hits llama-swap :9292/v1/rerank directly; this alias is gateway parity so
+  # every served model stays reachable through the front door (ai-08 lesson).
+  - model_name: rerank
+    litellm_params:
+      model: infinity/qwen3-reranker
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

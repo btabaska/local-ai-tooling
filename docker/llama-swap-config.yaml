@@ -218,6 +218,36 @@ models:
       --no-webui
     ttl: 3600
 
+  # ---- Reranker (CPU, on-demand — RAG second-stage scoring, lai-02) ----------
+  # Official ggml-org GGUF ONLY: community Qwen3-Reranker conversions are broken
+  # (missing the yes/no-token classification head wiring -> near-zero scores for
+  # everything). Deep-research verdict 2026-08-05 (local-claude-buildout).
+  # SEPARATE llama-server process from qwen3-embed on purpose: rank pooling
+  # (--rerank) cannot share a process with --embeddings/--pooling last.
+  # Same CPU discipline as the embedder: -ngl 0 + CUDA_VISIBLE_DEVICES="" so it
+  # never takes VRAM from the big models (see rig-gpu-vram-contention).
+  # Each query+document pair must fit one batch -> 4096 matches the embedder.
+  # Consumer: OWUI RAG_RERANKING_ENGINE=external -> :9292/v1/rerank (lai-03).
+  # Scores are sigmoid-normalized 0..1 in this build (b10015; measured live
+  # 2026-08-05: relevant 0.9945 vs irrelevant 0.000026). Near-zero for
+  # EVERYTHING = the broken-community-GGUF failure mode (rerank-spread check).
+  "qwen3-reranker":
+    name: "Qwen3-Reranker-0.6B (RAG rerank, CPU)"
+    env:
+      - "CUDA_VISIBLE_DEVICES="
+    cmd: |
+      /app/llama-server
+      --host 127.0.0.1 --port ${PORT}
+      -ngl 0 --threads 10
+      --model /models/qwen3-reranker-0.6b-q8_0.gguf
+      --rerank
+      --ctx-size 4096
+      --batch-size 4096 --ubatch-size 4096
+      --no-webui
+    ttl: 3600
+    capabilities:
+      reranker: true
+
   # ---- Creative / roleplay (Mistral Small 24B family, Mistral v7 "Tekken") ----
   # Added 2026-07-18. All three are Mistral-Small-3.2-24B RP/creative models, Q5_K_M
   # (~16.8G weights), Tekken chat template served via the embedded jinja template
@@ -297,3 +327,4 @@ groups:
     persistent: true
     members:
       - "qwen3-embed"
+      - "qwen3-reranker"   # lai-02; separate CPU process, coexists with the embedder

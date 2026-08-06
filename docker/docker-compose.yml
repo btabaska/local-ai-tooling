@@ -81,7 +81,7 @@ services:
       RAG_OPENAI_API_BASE_URL: http://litellm:4000/v1
       RAG_OPENAI_API_KEY: ${OPENWEBUI_LITELLM_KEY}
       RAG_EMBEDDING_MODEL: embed
-      RAG_EMBEDDING_BATCH_SIZE: "10"
+      RAG_EMBEDDING_BATCH_SIZE: "32"
       # Qwen3-Embedding asymmetric retrieval: queries carry the instruct prefix,
       # documents do not (safe to change without re-embedding the docs):
       RAG_EMBEDDING_QUERY_PREFIX: "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: "
@@ -91,20 +91,43 @@ services:
       WEBUI_URL: ${WEBUI_URL:-}
       # New signups require admin approval (first account created becomes admin):
       DEFAULT_USER_ROLE: pending
-      # ── Web search (Kagi) ──────────────────────────────────────────────────
+      # ── Web search (SearXNG on the mini, lai-01/lai-03) ────────────────────
       # NOTE: these are Open WebUI *PersistentConfig* vars — they only SEED a fresh
       # open_webui_data volume. Once a value exists in the DB it is authoritative and
-      # these env vars are ignored on later boots. To change a setting on a running
-      # install, use Admin → Settings (see agentic/openwebui/SETUP.md). They live here
-      # so a rebuild from an empty volume reproduces the working config.
+      # these env vars are ignored on later boots (DB WINS). The live install was
+      # switched via the admin REST API (see foss-setup wiki runbook
+      # runbooks/owui-search-rag.md); these seeds are rebuild parity only.
       ENABLE_WEB_SEARCH: "true"
-      WEB_SEARCH_ENGINE: kagi
+      WEB_SEARCH_ENGINE: searxng
+      # NO &format=json suffix — OWUI strips it; the mini SearXNG serves
+      # formats [html, json] already (lai-01).
+      SEARXNG_QUERY_URL: "http://192.168.10.2:8888/search?q=<query>"
+      # Kagi retired as the engine (lai-03) but the key stays vault-mapped for rollback:
       KAGI_SEARCH_API_KEY: ${KAGI_SEARCH_API_KEY:-}
-      WEB_SEARCH_RESULT_COUNT: "10"
+      WEB_SEARCH_RESULT_COUNT: "5"
       WEB_SEARCH_CONCURRENT_REQUESTS: "5"
       # Inject full search results into context instead of RAG-chunk+retrieve. Fixes the
       # "search ran but model says no results" failure on large-context models. See SETUP.md.
-      BYPASS_EMBEDDING_AND_RETRIEVAL: "true"
+      # (lai-03 fix: the old seed used BYPASS_EMBEDDING_AND_RETRIEVAL, which in OWUI
+      # 0.10.x is the TOP-LEVEL RAG bypass — it would disable all document RAG on a
+      # fresh volume. The web-search-scoped var is this one:)
+      BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL: "true"
+      # ── Hybrid RAG + external reranker (lai-02/lai-03) ─────────────────────
+      # PersistentConfig too (DB WINS — applied live via admin API, seeds for rebuild).
+      # Reranker = llama-swap qwen3-reranker (CPU, ggml-org Q8_0), container-network
+      # address; externally the same endpoint is rig :9292/v1/rerank.
+      ENABLE_RAG_HYBRID_SEARCH: "true"
+      ENABLE_RAG_HYBRID_SEARCH_ENRICHED_TEXTS: "true"
+      RAG_TOP_K: "20"
+      RAG_TOP_K_RERANKER: "5"
+      RAG_RERANKING_ENGINE: external
+      RAG_RERANKING_MODEL: qwen3-reranker
+      RAG_EXTERNAL_RERANKER_URL: http://llama-swap:8080/v1/rerank
+      RAG_EXTERNAL_RERANKER_TIMEOUT: "120"
+      # Text pipeline (lai-03): markdown-header splitter + merge tiny chunks up to
+      # ~300 chars so header-split fragments don't pollute retrieval.
+      ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER: "true"
+      CHUNK_MIN_SIZE_TARGET: "300"
     volumes:
       - open_webui_data:/app/backend/data
     extra_hosts:

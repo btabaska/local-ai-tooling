@@ -12,9 +12,16 @@ of this runs on your CPU/RAM — only the model itself uses the GPU.
 > - **Native Function Calling = Native** on tool-capable models only: `qwen3.6:64k`, `qwen3.6:27b`,
 >   `qwen3.6:35b-a3b`, `devstral:24b`, `code:opencode`. Keep `gemma4*` / `tag:fast` on **Default**
 >   (weak tool-callers). Attach `time`+`fetch` to each native model.
-> - **Web Search → Bypass Embedding and Retrieval = ON**, engine Kagi, result count 10,
->   concurrent requests 5. (Seeded by `BYPASS_EMBEDDING_AND_RETRIEVAL` / `WEB_SEARCH_*` in
+> - **Web Search → Bypass Embedding and Retrieval = ON**, engine **SearXNG**
+>   (`http://192.168.10.2:8888/search?q=<query>` on the mini — no `&format=json` suffix, OWUI
+>   strips it; lai-01/lai-03 replaced Kagi), result count 5, concurrent requests 5. (Seeded by
+>   `BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL` / `WEB_SEARCH_*` / `SEARXNG_QUERY_URL` in
 >   `docker/docker-compose.yml`.) This is the fix for "search ran but the model said no results."
+> - **Hybrid RAG + external reranker (lai-03):** hybrid search ON + enriched texts, TOP_K 20 →
+>   reranker top 5, engine `external` → `http://llama-swap:8080/v1/rerank` model `qwen3-reranker`
+>   (= rig `:9292` externally), markdown-header splitter + chunk-min-target 300, embedding batch 32.
+>   Applied via the admin REST API (DB wins); seeds in compose. Full toggle list: foss-setup wiki
+>   `runbooks/owui-search-rag.md`.
 > - **Expanded mcpo tools:** `sequential-thinking` + `serena` added (register `http://mcpo:8000/serena`
 >   and `http://mcpo:8000/sequential-thinking` in External Tools). `/repos` (host `REPOS_PATH`) is
 >   mounted into mcpo so serena reaches your code.
@@ -102,11 +109,14 @@ Two ready-to-recreate custom models. Workspace → Models → ➕, set the field
   `min_p=0`, `repeat_penalty=1.1`, `presence_penalty=0`, `keep_alive=30m`. Leave `think` on.
   ⚠️ Gemma bakes **no** `num_ctx`, so leaving it blank runs at ~4k — always set it.
 
-### Web search is the globe toggle, not a tool
-Open WebUI web search (Kagi, Bypass-Retrieval on) is activated by the **🌐 globe icon** in the message
-box — OWUI runs the search and injects results into context. The model does **not** see a callable
-"web search" tool, so asking it "do you have web search?" returns *no* even though it works. To use it:
-toggle the globe on, then ask. (To make search a real callable tool, add a search MCP server to mcpo.)
+### Web search: globe toggle → native `search_web` tool (0.10.x)
+Web search (SearXNG, Bypass-Retrieval on) is still activated by the **🌐 globe icon**, but since
+OWUI 0.10.x with Native function calling the model **does** get callable builtin `search_web` +
+`fetch_url` tools (the "Agentic Research" loop): the model picks its own queries, OWUI runs them
+against SearXNG and feeds results back. Requires: globe on (or model capability Web Search) + a
+real UI session (builtin tools are only injected for socket sessions — bare API calls get the
+`tool_calls` back to execute themselves). On `legacy` function-calling models the old flow remains:
+OWUI runs the search up front and injects results; the model never sees a tool.
 
 ### VRAM curve — max `num_ctx` fully on GPU (RTX 3090 Ti 24 GB, flash-attn + q8 KV)
 

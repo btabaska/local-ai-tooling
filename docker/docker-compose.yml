@@ -162,6 +162,30 @@ services:
       AUDIO_STT_OPENAI_API_BASE_URL: http://192.168.10.2:8010/v1
       AUDIO_STT_OPENAI_API_KEY: none
       AUDIO_STT_MODEL: Systran/faster-whisper-small
+      # ── Image gen + edit = ComfyUI via the gpu-arbiter (lai-11) ────────────
+      # PersistentConfig again (DB WINS after first boot — wired live via
+      # POST /api/v1/images/config/update; these are rebuild seeds). Base URL is
+      # the ARBITER (:8189), never bare comfyui:8188 — take-turns GPU protocol.
+      # Gen = z-image-turbo (8-step, dpmpp_sde/beta, cfg 1); edit = flux-2-klein
+      # instruction editing (ReferenceLatent, 20 steps, cfg 4). NOTE: the edit
+      # node map has NO steps mapping ON PURPOSE — OWUI's edit path sends no
+      # steps value and a mapped node would render None -> ComfyUI 400s.
+      # Runbook: foss-setup wiki runbooks/image-browser-mcp.md.
+      ENABLE_IMAGE_GENERATION: "true"
+      IMAGE_GENERATION_ENGINE: comfyui
+      IMAGE_GENERATION_MODEL: z_image_turbo_bf16.safetensors
+      IMAGE_SIZE: 1024x1024
+      IMAGE_STEPS: "8"
+      COMFYUI_BASE_URL: http://gpu-arbiter:8189
+      COMFYUI_WORKFLOW: '{"1":{"class_type":"CLIPLoader","inputs":{"clip_name":"qwen_3_4b.safetensors","type":"lumina2","device":"default"}},"2":{"class_type":"UNETLoader","inputs":{"unet_name":"z_image_turbo_bf16.safetensors","weight_dtype":"default"}},"3":{"class_type":"VAELoader","inputs":{"vae_name":"ae.safetensors"}},"4":{"class_type":"ModelSamplingAuraFlow","inputs":{"model":["2",0],"shift":3}},"5":{"class_type":"CLIPTextEncode","inputs":{"clip":["1",0],"text":"a scenic landscape"}},"6":{"class_type":"ConditioningZeroOut","inputs":{"conditioning":["5",0]}},"7":{"class_type":"EmptySD3LatentImage","inputs":{"width":1024,"height":1024,"batch_size":1}},"8":{"class_type":"KSampler","inputs":{"seed":7,"steps":8,"cfg":1.0,"sampler_name":"dpmpp_sde","scheduler":"beta","denoise":1.0,"model":["4",0],"positive":["5",0],"negative":["6",0],"latent_image":["7",0]}},"9":{"class_type":"VAEDecode","inputs":{"samples":["8",0],"vae":["3",0]}},"10":{"class_type":"SaveImage","inputs":{"filename_prefix":"owui_gen","images":["9",0]}}}'
+      COMFYUI_WORKFLOW_NODES: '[{"type":"model","key":"unet_name","node_ids":["2"]},{"type":"prompt","key":"text","node_ids":["5"]},{"type":"width","key":"width","node_ids":["7"]},{"type":"height","key":"height","node_ids":["7"]},{"type":"steps","key":"steps","node_ids":["8"]},{"type":"seed","key":"seed","node_ids":["8"]}]'
+      ENABLE_IMAGE_EDIT: "true"
+      IMAGE_EDIT_ENGINE: comfyui
+      IMAGE_EDIT_MODEL: flux-2-klein-9b-Q8_0.gguf
+      IMAGE_EDIT_SIZE: 1024x1024
+      IMAGES_EDIT_COMFYUI_BASE_URL: http://gpu-arbiter:8189
+      IMAGES_EDIT_COMFYUI_WORKFLOW: '{"1":{"class_type":"UnetLoaderGGUF","inputs":{"unet_name":"flux-2-klein-9b-Q8_0.gguf"}},"2":{"class_type":"CLIPLoader","inputs":{"clip_name":"qwen_3_8b_fp8mixed.safetensors","type":"flux2","device":"default"}},"3":{"class_type":"VAELoader","inputs":{"vae_name":"flux2-vae.safetensors"}},"4":{"class_type":"LoadImage","inputs":{"image":"example.png"}},"5":{"class_type":"FluxKontextImageScale","inputs":{"image":["4",0]}},"6":{"class_type":"VAEEncode","inputs":{"pixels":["5",0],"vae":["3",0]}},"7":{"class_type":"CLIPTextEncode","inputs":{"clip":["2",0],"text":"edit instruction"}},"8":{"class_type":"ReferenceLatent","inputs":{"conditioning":["7",0],"latent":["6",0]}},"9":{"class_type":"CLIPTextEncode","inputs":{"clip":["2",0],"text":""}},"10":{"class_type":"EmptyFlux2LatentImage","inputs":{"width":1024,"height":1024,"batch_size":1}},"11":{"class_type":"KSamplerSelect","inputs":{"sampler_name":"euler"}},"12":{"class_type":"Flux2Scheduler","inputs":{"steps":20,"width":1024,"height":1024}},"13":{"class_type":"CFGGuider","inputs":{"model":["1",0],"positive":["8",0],"negative":["9",0],"cfg":4.0}},"14":{"class_type":"RandomNoise","inputs":{"noise_seed":424242}},"15":{"class_type":"SamplerCustomAdvanced","inputs":{"noise":["14",0],"guider":["13",0],"sampler":["11",0],"sigmas":["12",0],"latent_image":["10",0]}},"16":{"class_type":"VAEDecode","inputs":{"samples":["15",0],"vae":["3",0]}},"17":{"class_type":"SaveImage","inputs":{"filename_prefix":"owui_edit","images":["16",0]}}}'
+      IMAGES_EDIT_COMFYUI_WORKFLOW_NODES: '[{"type":"model","key":"unet_name","node_ids":["1"]},{"type":"image","key":"image","node_ids":["4"]},{"type":"prompt","key":"text","node_ids":["7"]},{"type":"width","key":"width","node_ids":["10","12"]},{"type":"height","key":"height","node_ids":["10","12"]},{"type":"seed","key":"noise_seed","node_ids":["14"]}]'
     volumes:
       - open_webui_data:/app/backend/data
     extra_hosts:
@@ -406,6 +430,56 @@ services:
     restart: unless-stopped
     ports:
       - "8880:8880"
+
+
+  # ---- comfyui-mcp: MCP tool server for ComfyUI image gen (lai-11, 2026-08-06) ----
+  # joenorton/comfyui-mcp-server pinned at tag v1.1.1 via a git-SHA ARG in
+  # ./comfyui-mcp/Dockerfile (no upstream image exists; the SHA pin is this
+  # service's digest pin — bump COMFYUI_MCP_REF to update). Streamable-HTTP MCP
+  # at :9000/mcp (stateless). Talks to the gpu-arbiter (:8189), NOT ComfyUI
+  # (:8188), so every generation keeps the take-turns GPU protocol (LLM unload
+  # before /prompt, /free after the queue drains). Curated workflow-backed tools
+  # come from ./comfyui-mcp/workflows (mounted ro): zimage_turbo + noobai_anime,
+  # each parameterizing ONLY prompt+seed (omitted optional PARAM_ placeholders
+  # would leak into the graph as literal strings and fail ComfyUI validation).
+  # LAN/tailnet posture like llama-swap: docker-published :9000, no vhost, no
+  # auth — never expose past the LAN. Consumers: OWUI native MCP (3-tool filter,
+  # scripts/seed-owui-tool-servers.sh) + opencode (full set). Check: mini
+  # image-browser-mcp.
+  comfyui-mcp:
+    build: ./comfyui-mcp
+    container_name: comfyui-mcp
+    restart: unless-stopped
+    depends_on:
+      - gpu-arbiter
+    ports:
+      - "9000:9000"
+    environment:
+      COMFYUI_URL: http://gpu-arbiter:8189
+      COMFY_MCP_WORKFLOW_DIR: /workflows
+    volumes:
+      - ./comfyui-mcp/workflows:/workflows:ro
+
+  # ---- playwright-mcp: headless-browser MCP tool server (lai-11, 2026-08-06) ----
+  # microsoft/playwright-mcp v0.0.79, tag@digest pinned (re-resolve + bump to
+  # update). CPU-only headless chromium (the docker image supports nothing else);
+  # --isolated so sessions never accumulate profile state; --no-sandbox is the
+  # documented container invocation. Streamable-HTTP MCP at :8931/mcp.
+  # LAN/tailnet posture: docker-published :8931, no vhost, no auth — NEVER expose
+  # past the LAN (it will browse anywhere as this host). Consumers: OWUI native
+  # MCP (8-tool filter) + opencode (full set). Check: mini image-browser-mcp.
+  playwright-mcp:
+    image: mcr.microsoft.com/playwright/mcp:v0.0.79@sha256:18c0a9c934004fe9580cc79f1e8e6e6cde7c667348b215335e8a23fd3e509804
+    container_name: playwright-mcp
+    restart: unless-stopped
+    init: true
+    entrypoint: ["node", "/app/cli.js"]
+    # --allowed-hosts = DNS-rebinding guard on the Host header (403 otherwise):
+    # compose-internal name (OWUI), LAN IP (mini runner/Mac), tailnet name+IP (opencode).
+    command: ["--headless", "--browser", "chromium", "--no-sandbox", "--isolated", "--host", "0.0.0.0", "--port", "8931",
+              "--allowed-hosts", "localhost:8931,127.0.0.1:8931,playwright-mcp:8931,192.168.10.12:8931,cachyos.tailb31641.ts.net:8931,100.68.237.117:8931"]
+    ports:
+      - "8931:8931"
 
 
 volumes:

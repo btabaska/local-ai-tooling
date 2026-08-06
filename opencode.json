@@ -150,7 +150,9 @@
       "tools": {
         "serena*": true,
         "context7*": true,
-        "fleet*": true
+        "fleet*": true,
+        "playwright*": true,
+        "comfyui*": true
       }
     },
     "plan": {
@@ -165,7 +167,9 @@
       "tools": {
         "serena*": true,
         "context7*": true,
-        "fleet*": true
+        "fleet*": true,
+        "playwright*": true,
+        "comfyui*": true
       }
     }
   },
@@ -202,6 +206,18 @@
         "PYTHONUNBUFFERED": "1"
       },
       "timeout": 30000
+    },
+    "playwright": {
+      "type": "remote",
+      "enabled": true,
+      "url": "http://cachyos.tailb31641.ts.net:8931/mcp",
+      "timeout": 20000
+    },
+    "comfyui": {
+      "type": "remote",
+      "enabled": true,
+      "url": "http://cachyos.tailb31641.ts.net:9000/mcp",
+      "timeout": 20000
     }
   },
   "permission": {
@@ -211,7 +227,9 @@
   "tools": {
     "serena*": false,
     "context7*": false,
-    "fleet*": false
+    "fleet*": false,
+    "playwright*": false,
+    "comfyui*": false
   },
   "subagent_depth": 2,
   "compaction": {

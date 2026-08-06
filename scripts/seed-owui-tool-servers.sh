@@ -1,29 +1,49 @@
 #!/bin/bash
 # seed-owui-tool-servers.sh — (re)apply Open WebUI's External Tool server
-# connections (lai-04, 2026-08-05). Rebuild parity: these connections are
-# PersistentConfig — they live ONLY in the open_webui_data volume DB
-# (config key tool_server.connections), so a volume wipe silently erases
-# them. This script is their canonical source.
+# connections (lai-04, 2026-08-05; extended lai-11, 2026-08-06). Rebuild parity:
+# these connections are PersistentConfig — they live ONLY in the open_webui_data
+# volume DB (config key tool_server.connections), so a volume wipe silently
+# erases them. This script is their canonical source.
 #
-# Topology (lai-04):
+# Topology (lai-04 + lai-11):
 # - NATIVE MCP (streamable-HTTP, OWUI >=0.6.31; type "mcp"):
-#     fleet    -> http://host.docker.internal:8765/mcp (fleet-mcp.service on
-#                 the rig host, ops/fleet-mcp.service). Function filter keeps
-#                 9 of 10 tools — run_verification_checks is excluded
-#                 (minutes-long full check sweep; chat-hostile).
-#     context7 -> https://mcp.context7.com/mcp (hosted, keyless, low rate).
+#     fleet      -> http://host.docker.internal:8765/mcp (fleet-mcp.service on
+#                   the rig host, ops/fleet-mcp.service). Function filter keeps
+#                   9 of 10 tools — run_verification_checks is excluded
+#                   (minutes-long full check sweep; chat-hostile).
+#     context7   -> https://mcp.context7.com/mcp (hosted, keyless, low rate).
+#     comfyui    -> http://comfyui-mcp:9000/mcp (lai-11; docker/comfyui-mcp).
+#                   Filter keeps 3 of 17: the two curated workflow tools
+#                   (zimage_turbo, noobai_anime) + view_image. Job/asset/publish
+#                   plumbing stays opencode-only.
+#     playwright -> http://playwright-mcp:8931/mcp (lai-11; microsoft/playwright-mcp,
+#                   headless chromium, --isolated). Filter keeps 8 of 24 chat-shaped
+#                   browse tools; evaluate/run_code_unsafe/network stay opencode-only.
 # - mcpo (OpenAPI bridge, stdio-only servers stay here):
 #     time / fetch / serena / sequential-thinking.
+#   serena is FILTERED to 10 of 21 (lai-11): read-only code intel + memory reads.
+#   NOTE mcpo tool names in OWUI are the OpenAPI operationIds (tool_<name>_post),
+#   so the openapi filter entries below use that full form; native-mcp filters
+#   use bare tool names.
+#   The 11 cut tools are all mutating (replace_*/insert_*/rename_*/delete_*/
+#   *_memory writes) — OWUI chat is a read-only consumer; opencode keeps full
+#   serena via its own MCP client.
 #   mcpo ALSO still serves /fleet and /context7 passthroughs for non-OWUI
 #   consumers (mcpo-config.json unchanged) — OWUI just no longer uses them.
 #
-# Tool budget: fleet 9 + context7 2 + serena 21 + time 2 + fetch 1 +
-# sequential-thinking 1 = 36 OWUI-visible tools (< the ~40 cap that degrades
-# small-model routing). Guarded by the mini check `owui-mcp-tools`.
+# Tool budget: fleet 9 + context7 2 + serena 10 + time 2 + fetch 1 +
+# sequential-thinking 1 + comfyui 3 + playwright 8 = 36 OWUI-visible tools
+# (< the ~40 cap that degrades small-model routing). Guarded by the mini checks
+# `owui-mcp-tools` (budget) + `image-browser-mcp` (lai-11 servers + filters).
 #
 # NOTE: chat models reference these by stable ids (server:time, server:fetch,
 # server:serena, server:sequential-thinking, server:mcp:fleet,
-# server:mcp:context7) in model.meta.toolIds — keep info.id values stable.
+# server:mcp:context7, server:mcp:comfyui, server:mcp:playwright) in
+# model.meta.toolIds — keep info.id values stable.
+#
+# NOTE filter semantics: OWUI matches with is_string_allowed = name ENDSWITH
+# entry (allow-list) — every entry below was checked against sibling tool names
+# for suffix collisions before landing here; re-check when adding entries.
 #
 # Run ON rig:  OWUI_API_KEY=<admin api key> bash scripts/seed-owui-tool-servers.sh
 # Key source:  foss-setup vault ai_stack.openwebui_rag_sync_api_key (admin).
@@ -42,8 +62,8 @@ payload=$(cat <<'JSON'
   "config": {"enable": true, "function_name_filter_list": "", "access_grants": []},
   "info": {"id": "fetch", "name": "fetch", "description": "mcpo stdio bridge: mcp-server-fetch"}, "spec_type": "url", "spec": ""},
  {"url": "http://mcpo:8000/serena", "path": "openapi.json", "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
-  "config": {"enable": true, "function_name_filter_list": "", "access_grants": []},
-  "info": {"id": "serena", "name": "serena", "description": "mcpo stdio bridge: semantic code intel (project /repos/app)"}, "spec_type": "url", "spec": ""},
+  "config": {"enable": true, "function_name_filter_list": "tool_get_symbols_overview_post,tool_find_symbol_post,tool_find_referencing_symbols_post,tool_find_implementations_post,tool_find_declaration_post,tool_get_diagnostics_for_file_post,tool_read_memory_post,tool_list_memories_post,tool_onboarding_post,tool_initial_instructions_post", "access_grants": []},
+  "info": {"id": "serena", "name": "serena", "description": "mcpo stdio bridge: semantic code intel (project /repos/app). Filtered to the 10 read-only tools (lai-11); editing tools are opencode-only."}, "spec_type": "url", "spec": ""},
  {"url": "http://mcpo:8000/sequential-thinking", "path": "openapi.json", "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "", "access_grants": []},
   "info": {"id": "sequential-thinking", "name": "sequential thinking", "description": "mcpo stdio bridge: reasoning scratchpad"}, "spec_type": "url", "spec": ""},
@@ -52,7 +72,13 @@ payload=$(cat <<'JSON'
   "info": {"id": "fleet", "name": "Fleet (native MCP)", "description": "Read-only homelab fleet inspection (ai-01, fleet-mcp.service on the rig) over native streamable-HTTP. run_verification_checks is filtered out (minutes-long, chat-hostile)."}},
  {"url": "https://mcp.context7.com/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "", "access_grants": []},
-  "info": {"id": "context7", "name": "Context7 (native MCP)", "description": "Up-to-date library docs — hosted streamable-HTTP endpoint, keyless (low rate)."}}
+  "info": {"id": "context7", "name": "Context7 (native MCP)", "description": "Up-to-date library docs — hosted streamable-HTTP endpoint, keyless (low rate)."}},
+ {"url": "http://comfyui-mcp:9000/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
+  "config": {"enable": true, "function_name_filter_list": "zimage_turbo,noobai_anime,view_image", "access_grants": []},
+  "info": {"id": "comfyui", "name": "ComfyUI (native MCP)", "description": "Image generation tools (lai-11, comfyui-mcp v1.1.1 -> gpu-arbiter): zimage_turbo (realistic, 8-step) + noobai_anime (SDXL anime) + view_image. Full 17-tool set is opencode-only."}},
+ {"url": "http://playwright-mcp:8931/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
+  "config": {"enable": true, "function_name_filter_list": "browser_navigate,browser_navigate_back,browser_snapshot,browser_take_screenshot,browser_click,browser_type,browser_fill_form,browser_wait_for", "access_grants": []},
+  "info": {"id": "playwright", "name": "Playwright browser (native MCP)", "description": "Headless-chromium browsing (lai-11, microsoft/playwright-mcp v0.0.79, --isolated): navigate/snapshot/screenshot/interact. evaluate + network tools are opencode-only."}}
 ]}
 JSON
 )

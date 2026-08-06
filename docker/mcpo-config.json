@@ -10,15 +10,21 @@
     "time": {
       "command": "uvx",
       "args": [
+        "--with",
+        "mcp<2",
         "mcp-server-time",
         "--local-timezone=America/New_York"
-      ]
+      ],
+      "//": "PIN mcp<2: mcp python SDK 2.0 renamed McpError->MCPError; unpinned uvx resolution broke this server at the 2026-08-03 reboot (lai-04)."
     },
     "fetch": {
       "command": "uvx",
       "args": [
+        "--with",
+        "mcp<2",
         "mcp-server-fetch"
-      ]
+      ],
+      "//": "PIN mcp<2: same SDK-2.0 breakage as time (lai-04)."
     },
     "sequential-thinking": {
       "//": "Gives chat models a scratchpad for multi-step reasoning.",

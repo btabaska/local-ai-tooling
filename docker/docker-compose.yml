@@ -133,7 +133,14 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # ---- mcpo: bridges stdio MCP tool servers to OpenAPI so Open WebUI can use them ----
+  # ---- mcpo: bridges stdio MCP tool servers to OpenAPI ----
+  # lai-04 (2026-08-05): Open WebUI now consumes fleet-mcp + context7 DIRECTLY as
+  # native MCP tool servers (type mcp, streamable-HTTP; OWUI >=0.6.31) — see
+  # scripts/seed-owui-tool-servers.sh (canonical connection list; PersistentConfig,
+  # DB-only). mcpo keeps serving the stdio-only servers (time/fetch/serena/
+  # sequential-thinking) to OWUI, and its /fleet + /context7 passthroughs stay up
+  # for non-OWUI consumers. time+fetch pin mcp<2 in mcpo-config.json (SDK 2.0
+  # renamed McpError -> MCPError and broke both at the 2026-08-03 reboot).
   mcpo:
     image: ghcr.io/open-webui/mcpo:main
     container_name: mcpo

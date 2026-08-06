@@ -1,0 +1,125 @@
+# skills-manifest.yaml — canonical record of the curated agent-skills bundle (lai-06, 2026-08-06).
+#
+# Machines: Mac (MacBook) + rig (CachyOS). SAME set on both; opencode lazy-loads both roots.
+# Two skill roots feed discovery (`opencode debug skill` lists 38 = 34 files + 4 built-ins):
+#   1. ~/.claude/skills          — installed via the Vercel skills CLI
+#      (`npx skills add <repo> -g -y -a claude-code -s <skill>...`). NOT vendored here:
+#      the anthropics doc skills are source-available / NO-REDISTRIBUTE — this manifest
+#      records NAMES ONLY; rebuild with the install commands below.
+#   2. ~/.config/opencode/skills — pre-existing curated set, repo-canonical at
+#      agentic/opencode/skills/ in THIS repo (deploy = copy the dir).
+#
+# Cap: <=40 skills per machine INCLUDING built-ins (arXiv:2602.16653 — skill misrouting
+# grows as the catalog bloats; 30B-class models benefit only while the catalog stays lean).
+# Rig live-state is enforced by verification check `skills-manifest-parity`
+# (foss-setup/verification/checks.d/local-ai.yaml). The Mac is not runner-reachable —
+# accepted gap, keep it in sync by hand with the same commands.
+
+_meta:
+  updated: 2026-08-06
+  task: lai-06
+  cap_total: 40
+  count_claude_skills: 23
+  count_opencode_config_skills: 11
+  opencode_builtins: 4 # computer-use, customize-opencode, orca-cli, orchestration (runtime, version-dependent)
+
+# ~/.claude/skills (both machines). The `- skill:` key is grepped by
+# skills-manifest-parity — keep it unique to this section.
+claude_skills:
+  - skill: ansible-generator
+    source: akin-ozer/cc-devops-skills
+  - skill: ansible-validator
+    source: akin-ozer/cc-devops-skills
+  - skill: audit-context-building
+    source: trailofbits/skills
+  - skill: bash-script-generator
+    source: akin-ozer/cc-devops-skills
+  - skill: bash-script-validator
+    source: akin-ozer/cc-devops-skills
+  - skill: differential-review
+    source: trailofbits/skills
+  - skill: doc-coauthoring
+    source: anthropics/skills
+  - skill: dockerfile-generator
+    source: akin-ozer/cc-devops-skills
+  - skill: dockerfile-validator
+    source: akin-ozer/cc-devops-skills
+  - skill: docx
+    source: anthropics/skills
+  - skill: entry-point-analyzer
+    source: trailofbits/skills
+  - skill: find-skills
+    source: vercel-labs/skills
+  - skill: mcp-builder
+    source: anthropics/skills
+  - skill: pdf
+    source: anthropics/skills
+  - skill: pptx
+    source: anthropics/skills
+  - skill: receiving-code-review
+    source: obra/superpowers
+  - skill: sarif-parsing
+    source: trailofbits/skills
+  - skill: semgrep
+    source: trailofbits/skills
+  - skill: skill-creator
+    source: anthropics/skills
+  - skill: supply-chain-risk-auditor
+    source: trailofbits/skills
+  - skill: using-git-worktrees
+    source: obra/superpowers
+  - skill: webapp-testing
+    source: anthropics/skills
+  - skill: xlsx
+    source: anthropics/skills
+
+# Exact rebuild commands (installed 2026-08-06 from HEAD of each source repo):
+install:
+  installer: "Vercel skills CLI (skills.sh); agent dir claude-code -> ~/.claude/skills; -s flag repeats per skill (no comma lists)"
+  commands:
+    - "npx -y skills add anthropics/skills -g -y -a claude-code -s docx -s xlsx -s pptx -s pdf -s doc-coauthoring -s mcp-builder -s skill-creator -s webapp-testing"
+    - "npx -y skills add obra/superpowers -g -y -a claude-code -s receiving-code-review -s using-git-worktrees"
+    - "npx -y skills add trailofbits/skills -g -y -a claude-code -s audit-context-building -s differential-review -s entry-point-analyzer -s semgrep -s sarif-parsing -s supply-chain-risk-auditor"
+    - "npx -y skills add akin-ozer/cc-devops-skills -g -y -a claude-code -s ansible-generator -s ansible-validator -s bash-script-generator -s bash-script-validator -s dockerfile-generator -s dockerfile-validator"
+    - "npx -y skills add vercel-labs/skills -g -y -a claude-code -s find-skills"
+
+curation:
+  anthropics/skills: "doc + builder set only (8 of 18); Claude-platform/artifact skills (claude-api, brand-guidelines, canvas-design, web-artifacts-builder, ...) skipped. NO-REDISTRIBUTE: never commit their contents to any repo."
+  obra/superpowers: "skills-only route (NOT the plugin/bootstrap path — non-lazy). EXCLUDED parallel/subagent-orchestration skills (dispatching-parallel-agents, subagent-driven-development — single-GPU llama-swap rule). 8 more superpowers-derived skills already exist as locally customized variants in opencode_config_skills below (brainstorming, writing-plans, executing-plans, systematic-debugging, test-driven-development, requesting-code-review, finishing-a-branch, verification-before-done) — do NOT reinstall the upstream versions on top (name collisions). writing-skills skipped (overlaps skill-creator). using-superpowers skipped (tied to the plugin route)."
+  trailofbits/skills: "script-backed security-review picks only (6 of 76); fuzzing, blockchain scanners, codeql (needs CodeQL CLI) skipped."
+  akin-ozer/cc-devops-skills: "6 fleet-relevant of 31: ansible + bash + dockerfile generator/validator pairs; k8s/terraform/helm/CI-pipeline skills skipped (not in this fleet)."
+  vercel-labs/skills: "find-skills meta-skill (searches the skills.sh registry for new skills)."
+
+# ~/.config/opencode/skills (both machines) — canonical source: agentic/opencode/skills/ in this repo.
+opencode_config_skills:
+  - name: brainstorming
+  - name: compounding-learnings
+  - name: executing-plans
+  - name: finishing-a-branch
+  - name: lfg
+  - name: pr-summary
+  - name: requesting-code-review
+  - name: systematic-debugging
+  - name: test-driven-development
+  - name: verification-before-done
+  - name: writing-plans
+
+# Doc-skill system dependencies (reconciled against the installed SKILL.md files):
+deps:
+  mac:
+    - "pandoc (brew)"
+    - "LibreOffice (/Applications/LibreOffice.app; brew cask libreoffice)"
+    - "python venv ~/.venvs/doc-skills: pypdf pdfplumber openpyxl defusedxml lxml pillow python-docx python-pptx"
+    - "npm -g (homebrew prefix): docx pptxgenjs"
+  rig:
+    - "pandoc-cli (pacman)"
+    - "libreoffice-fresh (pacman, pre-existing)"
+    - "python venv ~/.venvs/doc-skills: pypdf pdfplumber openpyxl defusedxml lxml pillow python-docx python-pptx"
+    - "npm -g --prefix ~/.local: docx pptxgenjs"
+  notes:
+    - "Skills may also `npm install docx|pptxgenjs` locally in a workdir at use-time — that is normal."
+    - "Optional, NOT installed: pytesseract+pdf2image (+tesseract/poppler) for PDF OCR; markitdown; reportlab; pptx icon extras (react/react-dom/react-icons/sharp)."
+
+parity:
+  rig: "enforced by skills-manifest-parity (host: rig): ~/.claude/skills == claude_skills, ~/.config/opencode/skills == agentic/opencode/skills, total <= cap."
+  mac: "same set installed 2026-08-06; not runner-reachable (accepted) — resync by hand: run the install commands above + copy agentic/opencode/skills -> ~/.config/opencode/skills."

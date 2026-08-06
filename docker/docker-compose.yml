@@ -16,6 +16,7 @@
 #   LiteLLM UI     http://AI_HOST:4000/ui         (login: admin / your master key)
 #   mcpo tools     http://AI_HOST:8000/docs
 #   LDR research   http://AI_HOST:5000            (local-deep-research, lai-08)
+#   Kokoro TTS     http://AI_HOST:8880            (OpenAI-compatible /v1/audio/speech, lai-10)
 
 services:
   # ---- Postgres: backs LiteLLM virtual keys + spend tracking (not exposed to LAN) ----
@@ -143,6 +144,24 @@ services:
       # ~300 chars so header-split fragments don't pollute retrieval.
       ENABLE_MARKDOWN_HEADER_TEXT_SPLITTER: "true"
       CHUNK_MIN_SIZE_TARGET: "300"
+      # ── Voice (lai-10): Kokoro TTS + mini faster-whisper STT ───────────────
+      # PersistentConfig again (DB WINS after first boot — the live install was
+      # wired via POST /api/v1/audio/config/update; these are rebuild seeds).
+      # TTS: the kokoro container below, OpenAI-compatible, KEYLESS on the LAN
+      # ("none" placeholder — OWUI just forwards it as a Bearer header).
+      AUDIO_TTS_ENGINE: openai
+      AUDIO_TTS_OPENAI_API_BASE_URL: http://kokoro:8880/v1
+      AUDIO_TTS_OPENAI_API_KEY: none
+      AUDIO_TTS_MODEL: kokoro
+      AUDIO_TTS_VOICE: af_heart
+      AUDIO_TTS_SPLIT_ON: punctuation
+      # STT: the mini journaling stack's faster-whisper/speaches (host publish
+      # :8010 -> container :8000, journal-04). Model must be one speaches has
+      # cached (Systran/faster-whisper-small); keyless like Kokoro.
+      AUDIO_STT_ENGINE: openai
+      AUDIO_STT_OPENAI_API_BASE_URL: http://192.168.10.2:8010/v1
+      AUDIO_STT_OPENAI_API_KEY: none
+      AUDIO_STT_MODEL: Systran/faster-whisper-small
     volumes:
       - open_webui_data:/app/backend/data
     extra_hosts:
@@ -368,6 +387,25 @@ services:
     volumes:
       - ldr_data:/data
       - ldr_scripts:/scripts
+
+  # ---- Kokoro-FastAPI: local TTS for Open WebUI voice (lai-10, 2026-08-06) ----
+  # remsky/Kokoro-FastAPI v0.7.1, CPU variant, tag@digest pinned (re-resolve +
+  # bump to update). CPU ON PURPOSE: the single 3090 Ti is contended
+  # (rig-gpu-vram-contention) and short chat-reply synthesis is fine on CPU —
+  # do NOT swap in the kokoro-fastapi-gpu image or add a devices: block.
+  # Model weights + UniDic are BAKED into the image (no volume, no runtime
+  # download; DEVICE=cpu / USE_GPU=false are image env). OpenAI-compatible
+  # POST /v1/audio/speech (model "kokoro", voices at GET /v1/audio/voices,
+  # default af_heart); OWUI's TTS engine reaches it by container name
+  # (http://kokoro:8880/v1). KEYLESS BY DESIGN — LAN/tailnet posture like
+  # llama-swap/comfyui: docker-published :8880, no Caddy vhost, no auth;
+  # never expose it past the LAN. Consumer check: voice-roundtrip (mini).
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.7.1@sha256:2ff7f4d5ecd43efbd4216ee3f6f17f6d99693dbf0d3e19bac65e8adc2e9927cc
+    container_name: kokoro
+    restart: unless-stopped
+    ports:
+      - "8880:8880"
 
 
 volumes:

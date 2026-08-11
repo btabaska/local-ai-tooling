@@ -18,7 +18,7 @@
 # - The comfyui-workflows/*.api.json files are wrapped as {"prompt": {...}} (raw
 #   POST /prompt body shape); Lumiverse's import wants the BARE node map.
 # - Workflow import fetches the target's /object_info live — ComfyUI (via the
-#   gpu-arbiter at https://comfyui.tabaska.us) must be up when this runs.
+#   gpu-arbiter, reached via its comfyui-arbiter alias :8189) must be up when this runs.
 # - Field mappings are Lumiverse's parameterization (no %placeholders%): steps/
 #   cfg are intentionally NOT mapped for Z-Image (8/1.0) and Flux.2 (20/4.0) —
 #   those are turbo-tuned in the workflows. Flux carries width/height in BOTH
@@ -128,7 +128,7 @@ img_conns = call("GET", "/api/v1/image-gen-connections")["data"]
 img_by_name = {c["name"]: c["id"] for c in img_conns}
 for name, fname, is_default, mappings in IMAGE:
     body = {"name": name, "provider": "comfyui",
-            "api_url": "https://comfyui.tabaska.us", "is_default": is_default}
+            "api_url": "http://comfyui-arbiter:8189", "is_default": is_default}
     if name in img_by_name:
         iid = img_by_name[name]
         call("PUT", f"/api/v1/image-gen-connections/{iid}", body)

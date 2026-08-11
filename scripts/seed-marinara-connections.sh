@@ -56,17 +56,17 @@ WANTED = [
          baseUrl="https://llm.tabaska.us/v1", apiKey=key, model="goetia",
          maxContext=73728, isDefault=True, defaultForAgents=True),
     dict(name="Anime Image", provider="image_generation",
-         baseUrl="https://comfyui.tabaska.us", model="NoobAI-XL-v1.1.safetensors",
+         baseUrl="http://comfyui-arbiter:8189", model="NoobAI-XL-v1.1.safetensors",
          comfyuiWorkflow=wf("noobai-xl-anime.marinara.json")),
     dict(name="Realistic Image (Z-Image Turbo)", provider="image_generation",
-         baseUrl="https://comfyui.tabaska.us", model="z_image_turbo_bf16.safetensors",
+         baseUrl="http://comfyui-arbiter:8189", model="z_image_turbo_bf16.safetensors",
          comfyuiWorkflow=wf("z-image-turbo-realistic.marinara.json")),
     # model field deliberately avoids the substring "flux" — see header comment.
     dict(name="Realistic NSFW (CyberRealistic)", provider="image_generation",
-         baseUrl="https://comfyui.tabaska.us", model="cyberrealistic-nsfw-zimage-turbo.safetensors",
+         baseUrl="http://comfyui-arbiter:8189", model="cyberrealistic-nsfw-zimage-turbo.safetensors",
          comfyuiWorkflow=wf("z-image-nsfw-cyberrealistic.marinara.json")),
     dict(name="Realistic Image (Flux.2 Klein)", provider="image_generation",
-         baseUrl="https://comfyui.tabaska.us", model="klein-9b-comfyui",
+         baseUrl="http://comfyui-arbiter:8189", model="klein-9b-comfyui",
          comfyuiWorkflow=wf("flux2-klein-9b.marinara.json")),
 ]
 

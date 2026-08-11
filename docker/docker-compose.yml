@@ -385,6 +385,13 @@ services:
     command: ["sh", "-c", "pip install --quiet --no-cache-dir aiohttp && exec python /app/gpu-arbiter.py"]
     volumes:
       - ./gpu-arbiter.py:/app/gpu-arbiter.py:ro
+    networks:
+      default:
+        # "comfyui-arbiter" alias: Marinara infers the comfyui image source only when
+        # the base URL contains "comfyui" or ":8188" — frontends point at
+        # http://comfyui-arbiter:8189 so routing works AND gens take turns with the LLMs.
+        aliases:
+          - comfyui-arbiter
 
   # ---- local-deep-research: iterative deep-research assistant (lai-08, 2026-08-06) ----
   # LearningCircuit/local-deep-research, pinned 1.10.1 BY DIGEST (re-resolve + bump to

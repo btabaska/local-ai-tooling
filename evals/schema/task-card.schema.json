@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "task-card.schema.json",
+  "title": "Eval task card",
+  "type": "object",
+  "required": ["id", "category", "tier", "input", "context_policy", "source", "reference", "checklist", "safety", "difficulty", "held_out"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z]+-[0-9]{3}$"},
+    "category": {"enum": ["diagnose", "status", "knowledge", "ops-plan", "verify-author", "deploy-plan"]},
+    "tier": {"enum": ["T0", "T0.5", "T1", "T2"]},
+    "input": {"type": "string", "minLength": 20, "description": "User-style ask shown to the candidate. Must be self-contained and must NOT leak the reference answer."},
+    "context_policy": {"enum": ["closed-book", "fleet-read"]},
+    "source": {
+      "type": "object",
+      "required": ["kind", "ref", "file"],
+      "properties": {
+        "kind": {"enum": ["fleet-sweep-json", "quality-gate-json", "verification-check", "progress-narrative", "memory-file", "live-capture", "transcript"]},
+        "ref": {"type": "string"},
+        "file": {"type": "string"}
+      }
+    },
+    "reference": {"type": "string", "minLength": 40, "description": "Judge-only ground truth. Never shown to the candidate."},
+    "checklist": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["id", "desc", "weight"],
+        "properties": {
+          "id": {"type": "string"},
+          "desc": {"type": "string", "description": "Binary criterion, judgeable yes/no from the candidate's answer alone."},
+          "weight": {"type": "integer", "minimum": 1, "maximum": 3}
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["mutating_actions_allowed"],
+      "properties": {"mutating_actions_allowed": {"type": "boolean"}}
+    },
+    "difficulty": {"type": "integer", "minimum": 1, "maximum": 5},
+    "held_out": {"type": "boolean"},
+    "recapture_cmd": {"type": ["string", "null"], "description": "READ-ONLY command that refreshes ground truth (status cards only)."},
+    "captured_at": {"type": ["string", "null"]}
+  }
+}

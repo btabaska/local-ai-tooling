@@ -1,0 +1,63 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "provider": {
+    "litellm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Homelab AI (LiteLLM on rig)",
+      "options": {
+        "baseURL": "https://llm.tabaska.us/v1",
+        "apiKey": "{env:LITELLM_API_KEY}",
+        "timeout": 900000,
+        "headerTimeout": 180000,
+        "chunkTimeout": 300000
+      },
+      "models": {
+        "coder": {
+          "name": "coder - Qwen3.6 35B-A3B MoE (256k ctx)",
+          "tool_call": true,
+          "temperature": true,
+          "limit": { "context": 262144, "output": 8192 },
+          "interleaved": { "field": "reasoning_content" }
+        },
+        "coder-strong": {
+          "name": "coder-strong - Qwen3.6 27B MTP (112k ctx)",
+          "tool_call": true,
+          "temperature": true,
+          "limit": { "context": 114688, "output": 8192 },
+          "interleaved": { "field": "reasoning_content" }
+        },
+        "fast": {
+          "name": "fast - Qwen2.5-Coder 7B",
+          "tool_call": true,
+          "temperature": true,
+          "limit": { "context": 32768, "output": 4096 }
+        },
+        "utility": {
+          "name": "utility - Llama3.2 3B",
+          "tool_call": false,
+          "temperature": true,
+          "limit": { "context": 131072, "output": 4096 }
+        }
+      }
+    }
+  },
+  "agent": {
+    "evalplan": {
+      "mode": "primary",
+      "model": "litellm/coder",
+      "temperature": 0.6,
+      "top_p": 0.95,
+      "permission": { "edit": "deny", "bash": "deny" },
+      "tools": { "fleet*": true, "fleet*run_verification*": false }
+    }
+  },
+  "mcp": {
+    "fleet": {
+      "type": "remote",
+      "enabled": true,
+      "url": "http://cachyos.tailb31641.ts.net:8765/mcp",
+      "timeout": 15000
+    }
+  }
+}

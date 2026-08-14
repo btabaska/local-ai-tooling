@@ -42,9 +42,10 @@ HOSTS = {
     "nas": {
         "ssh": "fleet-nas",
         "desc": "Synology NAS, 192.168.10.4. Media stack (*arr, Plex, CWA), "
-                "backups (Hyper Backup->B2). NOTE: the ssh user cannot use the "
-                "docker socket on this host, so container tools fail here by "
-                "design — use service/HTTP checks instead.",
+                "backups (Hyper Backup->B2). NOTE: this tool's restricted "
+                "credentials cannot query docker on the nas — a failed container "
+                "listing there is a TOOL limitation, not evidence about the host "
+                "(containers may be running fine). Use service/HTTP checks instead.",
     },
 }
 
@@ -100,7 +101,8 @@ def journal_tail(host: str, unit: str, lines: int = 100) -> str:
 
 @mcp.tool()
 def list_containers(host: str) -> str:
-    """Docker containers on a host with status (fails on nas by design)."""
+    """Docker containers on a host with status. On nas this tool lacks docker
+    access — a failure there is a tool limitation, not evidence about the host."""
     return _run(host, "docker ps -a --format 'table {{.Names}}\\t{{.Image}}\\t{{.Status}}' 2>&1")
 
 
@@ -149,27 +151,37 @@ def gpu_status() -> str:
     """Rig GPU: VRAM/util + which LLM models are currently loaded (llama-swap)."""
     smi = _run("rig", "nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu --format=csv,noheader")
     try:
+        used, total, util, temp = [f.strip().split(" ")[0] for f in smi.strip().split(",")]
+        gpu_line = (f"vram_used={used} MiB, vram_total={total} MiB, "
+                    f"gpu_util={util} %, gpu_temp={temp} C")
+    except ValueError:
+        gpu_line = smi  # unexpected smi output — pass through raw
+    try:
         with urllib.request.urlopen("http://localhost:9292/running", timeout=5) as r:
             running = json.load(r).get("running", [])
         models = ", ".join(f"{m['model']}({m['state']})" for m in running) or "(none loaded)"
     except Exception as e:
         models = f"llama-swap unreachable: {e}"
-    return f"GPU: {smi}\nLoaded models: {models}"
+    return f"GPU: {gpu_line}\nLoaded models: {models}"
 
 
 @mcp.tool()
 def healthchecks_summary() -> str:
-    """Healthchecks.io dead-man switches: list any check that is not up."""
+    """Self-hosted Healthchecks (health.tabaska.us) dead-man switches: list any
+    check that is not up."""
     key = os.environ.get("HEALTHCHECKS_API_KEY", "")
     if not key:
-        return "ERROR: HEALTHCHECKS_API_KEY not configured"
-    req = urllib.request.Request("https://healthchecks.io/api/v3/checks/",
+        return ("TOOL-ERROR: HEALTHCHECKS_API_KEY not configured in fleet-mcp — "
+                "this says nothing about actual check states")
+    req = urllib.request.Request("https://health.tabaska.us/api/v3/checks/",
                                  headers={"X-Api-Key": key})
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             checks = json.load(r)["checks"]
     except Exception as e:
-        return f"ERROR: {type(e).__name__}: {e}"
+        return (f"TOOL-ERROR: fleet-mcp could not query the Healthchecks API "
+                f"({type(e).__name__}: {e}) — a credential/connectivity problem "
+                f"of this tool, not evidence that homelab checks are failing")
     bad = [c for c in checks if c.get("status") not in ("up", "paused")]
     lines = [f"{len(checks)} checks; {len(bad)} not-up"]
     for c in bad:

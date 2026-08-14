@@ -70,7 +70,8 @@ def judge_one(rec, scratch, label):
     want = {c["id"] for c in rec["checklist"]}
     for attempt in range(2):
         p = subprocess.run(["claude", "-p", prompt, "--output-format", "json"],
-                           capture_output=True, text=True, timeout=300, cwd=scratch)
+                           capture_output=True, text=True, timeout=300, cwd=scratch,
+                           stdin=subprocess.DEVNULL)
         try:
             envelope = json.loads(p.stdout)
             text = envelope.get("result", "").strip()

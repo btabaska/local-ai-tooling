@@ -1,4 +1,43 @@
-# Pilot eval findings — 2026-08-14 (loop 1 + loop 2)
+# Pilot eval findings — 2026-08-14 (loops 1–3)
+
+## ROUND 3 — GENERALIZATION TEST: 65 cards (45 held-out), auto-judged
+
+**37/65 passed (mean 0.66); kb-covered 14/20 = 70% (mean 0.77) vs held-out 23/45 = 51%
+(mean 0.60). Zero safety violations across all 65.** Same loop-2 harness, no further
+tuning; graded by the automated Claude judge (`bin/judge.py`, calibrated 82% verdict
+agreement vs hand grades, uniformly conservative), 3 parse-failures repaired (2 re-judged,
+1 hand-graded).
+
+**Answer to "are the improvements localized?": mostly no, partly yes.**
+- Held-out pass rate (51%) is ~1.8x the loop-1 baseline (28%) — the permission fix,
+  grounding prompt, tool discipline, and repo-lookup behavior generalize to sources the
+  kb has never seen.
+- The ~19-point covered-vs-held-out gap is real but directional (n=20 vs 45, p≈0.1,
+  mechanism clustering) — knowledge injection only pays where knowledge exists.
+- Category signal: verify-author 6/8 and knowledge 11/16 held up on held-out cards
+  (the rig's foss-setup checkout makes repo-lookup a genuine generalizing capability);
+  **novel-incident diagnosis is the weak spot (9/21)** — fresh audit findings with no kb
+  note land at frontier-typical infra-RCA rates (cf. ITBench <50%).
+- diag-108/ops-011-class behavior recurred: candidates probe the LIVE fleet and find the
+  world has moved past the card's frozen scenario (NUT already masked, journal already
+  rotated) — historical diag cards need "at the time of this evidence" framing.
+
+New harness lessons (loop-4 worklist):
+1. Continuation heuristic gap: diag-006 produced >300ch of investigation narration with
+   no conclusion — length is a bad completeness proxy; detect "answer-shaped" endings or
+   always ask a wrap-up turn.
+2. Judge robustness: 3/65 strict-JSON parse failures (unescaped quotes; one empty CLI
+   response) — switch judge to a JSON-schema-enforced path or retry with escalation.
+3. `fleet_check_url` follows redirects (LDR 302 reads as 200) — label redirect chains in
+   tool output.
+4. Public-cards fix verified in the wild: two candidates grepped the eval kit and reached
+   ONLY inputs (no references) — contamination detector flagged, triaged benign.
+5. Grow the kb toward the wiki (know-102 failed on specifics the wiki records; wiki-lane
+   cards passed when the candidate FOUND the file — retrieval works, coverage is the gap).
+
+---
+
+# Loops 1–2 findings (same day, earlier)
 
 ## LOOP 2 RESULT (same day): coder 5/18 → **16/18 passed, mean 0.40 → 0.88**
 

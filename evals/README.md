@@ -72,12 +72,22 @@ come from already-sanitized repo sources; transcript mining lands in loop 2 with
 
 ## Running
 
-Execute ON THE RIG (rsync `evals/` to `/tmp/evals-pilot/`, run detached):
+First build the kb and the candidate-visible card file (references/checklists are
+judge-only and must never reach the rig — a candidate's recursive grep once surfaced
+its own card's reference; see findings):
 
 ```sh
-python3 bin/run_eval.py --cards datasets/pilot-2026-08-14/cards.jsonl \
+python3 evals/bin/build_kb.py
+python3 evals/bin/public_cards.py --cards evals/datasets/pilot-2026-08-14/cards.jsonl
+```
+
+Execute ON THE RIG (rsync `evals/` — excluding `datasets/`, shipping only the
+`.public.jsonl` cards — to `/tmp/evals-pilot/`, run detached):
+
+```sh
+python3 bin/run_eval.py --cards datasets/pilot-2026-08-14/cards.public.jsonl \
   --model litellm/coder --agent evalplan --oc-config /tmp/evals-pilot/opencode-eval.json \
-  --out results/pilot-coder
+  --kb /tmp/evals-pilot/kb --out results/round<N>-coder
 ```
 
 Then pull results back and build the judge bundle:

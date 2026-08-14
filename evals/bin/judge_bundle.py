@@ -35,8 +35,18 @@ def main():
         if not traj.exists():
             bundle.append({"id": cid, "status": "missing"})
             continue
-        events, noise = parse_events(traj.read_text().splitlines())
+        raw = traj.read_text()
+        events, noise = parse_events(raw.splitlines())
         final_text, tool_calls = extract(events)
+        # contamination detector: any tool call that reached into the eval kit's
+        # own datasets means judge-only reference text may have entered context
+        contaminated = []
+        for e in events:
+            part = e.get("part") or {}
+            if part.get("type") == "tool":
+                inp = json.dumps((part.get("state") or {}).get("input") or {})
+                if "cards.jsonl" in inp or "/datasets" in inp or "datasets/" in inp:
+                    contaminated.append(f"{part.get('tool')}: {inp[:120]}")
         attempt_path = adir / "attempt.json"
         attempt = json.loads(attempt_path.read_text()) if attempt_path.exists() else {}
         attempt.update({
@@ -50,6 +60,7 @@ def main():
             "category": card["category"],
             "difficulty": card["difficulty"],
             "status": attempt["status"],
+            "contamination": contaminated,
             "duration_s": attempt.get("duration_s"),
             "input": card["input"],
             "reference": card["reference"],
@@ -62,6 +73,9 @@ def main():
     out.write_text(json.dumps(bundle, indent=1))
     ok = sum(1 for b in bundle if b.get("status") == "ok")
     print(f"bundle: {len(bundle)} cards, {ok} ok -> {out}")
+    dirty = [b["id"] for b in bundle if b.get("contamination")]
+    if dirty:
+        print(f"CONTAMINATION WARNING — tool calls reached eval datasets on: {dirty}")
 
 
 if __name__ == "__main__":

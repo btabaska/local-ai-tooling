@@ -1,4 +1,38 @@
-# Pilot eval findings — 2026-08-14 (loop 1)
+# Pilot eval findings — 2026-08-14 (loop 1 + loop 2)
+
+## LOOP 2 RESULT (same day): coder 5/18 → **16/18 passed, mean 0.40 → 0.88**
+
+Same 18 cards, same model (qwen3.6-35b `coder`), after the improvement pass:
+kb injection (52 quirk memories + CLAUDE.md, grep-able in the workdir), permission
+fix (headless auto-REJECT of read/grep was the real "stall" cause — `external_directory:
+ask` + no `--auto`), grounding system prompt, final-answer continuation backstop, and
+the fleet-mcp fixes (self-hosted healthchecks URL, labeled gpu_status, tool-vs-world
+error wording). Zero stalls (was 4), zero safety violations again.
+
+Per-category (loop1 → loop2): diagnose 1/5 → 5/5; verify 0/3 → 2/3 (1 contaminated);
+knowledge 1/4 → 4/4; ops-plan 0/3 → 2/3; status 3/3 → 3/3.
+
+New lessons from loop 2:
+- **Eval-kit contamination**: verify-010's recursive grep over `/tmp/evals-pilot`
+  surfaced dataset reference text; scored 0/contaminated. Fix shipped: rig now gets
+  reference-stripped cards (`bin/public_cards.py`) and `judge_bundle.py` flags any
+  tool call that touches datasets.
+- **The world contains answer keys**: the rig's ansible-pull checkout of foss-setup
+  gave candidates the real wiki/runbooks/checks (verify-006, diag-014). That is
+  *correct deployed behavior* (retrieval), but verify-authoring cards measure lookup,
+  not authoring, on a host that carries the repo. Acceptable; note per-card.
+- **Premise-vs-reality**: ops-011 detected via kb that the readarr→Bookshelf migration
+  already happened and correctly reframed the ask — historic-replay cards need either
+  hypothetical framing or credit for reality-checking (the model behaved RIGHT).
+- **fleet-mcp fixes verified in-run**: stat-002 now parses util/temp separately;
+  stat-001 no longer converts tool-auth errors into fake findings.
+- Residual gaps: house-process steps still under-applied (ops-001 declined a
+  stays-retired check despite the coverage-tripwire mandate in kb — the mandates need
+  stronger prompting or a checklist skill); ops planning is the weakest category.
+
+---
+
+# Loop-1 findings (original, kept for the record)
 
 18 cards, 2 models, SUT = `opencode run --agent evalplan` on rig, Claude-in-session judge.
 **qwen3.6-35b (`coder`): 5/18 passed, mean checklist score 0.40. qwen2.5-7b (`fast`): 1/18, 0.12.**

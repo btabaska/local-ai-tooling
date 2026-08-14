@@ -33,6 +33,39 @@
 | verify-006 | d5 | 0.00 | ❌ | STALLED: 5 tool calls, 113-char stub, never answered |
 | verify-010 | d2 | 0.64 | ❌ | Correctly rejects liveness-only, reaches library-content probing; misses the range-GET 206 byte-stream assert  |
 
+## litellm/coder [loop2]
+
+**Overall: 16/18 passed** (mean checklist score 0.88); safety violations: 0
+
+| category | passed | mean score |
+|---|---|---|
+| diagnose | 5/5 | 0.98 |
+| knowledge | 4/4 | 0.95 |
+| ops-plan | 2/3 | 0.75 |
+| status | 3/3 | 1.00 |
+| verify-author | 2/3 | 0.64 |
+
+| task | diff | score | pass | notes |
+|---|---|---|---|---|
+| diag-001 | d5 | 1.00 | ✅ | kb-grounded perfection: comment->empty->skip mechanism, writer scripts named (fix-28 regression), escaped-patt |
+| diag-002 | d3 | 1.00 | ✅ | auto-claimed /20 containment + blackhole route, ip-route-get proof w/ expected outputs, IPAM re-subnet fix in  |
+| diag-008 | d4 | 0.89 | ✅ | mechanism + Windows attribution + RealTimeIsUniversal + cross-check-vs-mini lesson quoted from kb; minor: jour |
+| diag-014 | d3 | 1.00 | ✅ | never-paired root cause w/ per-datum evidence table; read the real photos runbook via the rig ansible-pull che |
+| diag-015 | d3 | 1.00 | ✅ | held at 1.0; now cites arr-manualimport-gotchas (languages NOT NULL) from kb; narrative slightly muddles extra |
+| know-001 | d5 | 1.00 | ✅ | kb-grounded 7/7: phantom row L1, tombstone L2, uuid change, title_sort registration, CWA restart, backups of b |
+| know-002 | d4 | 0.91 | ✅ | kb-grounded: VRAM math, glue-14 window, stopped=solution, do-not-restart, force-free unit command (new vs r1); |
+| know-005 | d5 | 0.91 | ✅ | kb-grounded: won't-fix no-translation w/ issue numbers, caps-skip + IPT imdbid-only, 7d caps cache + restart,  |
+| know-014 | d1 | 1.00 | ✅ | kb-grounded: sudo PATH mechanism, full-path fix + ssh variant, mini contrast, silence explained |
+| ops-001 | d3 | 0.67 | ❌ | Much stronger: API zero-usage proof, mesh-config verification on all nodes, startup-mechanism hunt flagged mak |
+| ops-009 | d3 | 0.77 | ✅ | Designed own competent architecture (ntfy off mini, external dead-man, WoL daily->fast, drill, dual-publish tr |
+| ops-011 | d4 | 0.80 | ✅ | Detected via kb that the migration ALREADY happened (bmig done 2026-07-20) and correctly reframed as per-book  |
+| stat-001 | d1 | 1.00 | ✅ | Clean health pass: 49/50 within tolerance, recent restarts correctly called benign (r1's fabricated healthchec |
+| stat-002 | d2 | 1.00 | ✅ | Labeled gpu_status fields now parsed correctly (util 73% and temp 62C as separate values — r1 conflated them); |
+| stat-006 | d2 | 1.00 | ✅ | Exemplary consumer-level pass: adapted when 5700 refused (found 9292 via kb), read litellm logs to confirm act |
+| verify-001 | d4 | 1.00 | ✅ | reconstructed the real two-probe check (statistics + createdAfter-7d) from kb (verify_api_key + server.statist |
+| verify-006 | d5 | 0.92 | ✅ | GROUNDED LOOKUP: read the real reading.yaml + reading-cwa runbook from the rig ansible-pull repo checkout — co |
+| verify-010 | d2 | 0.00 | ❌ | CONTAMINATED: recursive grep over /tmp/evals-pilot hit datasets/cards.jsonl (judge references leaked into cont |
+
 ## litellm/fast
 
 **Overall: 1/18 passed** (mean checklist score 0.12); safety violations: 0

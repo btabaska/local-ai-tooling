@@ -63,7 +63,9 @@ def extract(events):
     order = []
     for e in events:
         part = None
-        for candidate in (e, e.get("part"), (e.get("properties") or {}).get("part")):
+        # nested part first: the OUTER event type mirrors the part type ("text" etc.),
+        # but the payload lives in e["part"] — checking e first extracts nothing
+        for candidate in (e.get("part"), (e.get("properties") or {}).get("part"), e):
             if isinstance(candidate, dict) and candidate.get("type") in ("text", "tool", "reasoning"):
                 part = candidate
                 break

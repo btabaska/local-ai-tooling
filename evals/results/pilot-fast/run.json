@@ -1,0 +1,97 @@
+{
+ "model": "litellm/fast",
+ "agent": "evalplan",
+ "cards": "datasets/pilot-2026-08-14/cards.jsonl",
+ "attempts": [
+  {
+   "task_id": "diag-001",
+   "status": "empty",
+   "duration_s": 16.2
+  },
+  {
+   "task_id": "diag-002",
+   "status": "empty",
+   "duration_s": 10.0
+  },
+  {
+   "task_id": "diag-008",
+   "status": "empty",
+   "duration_s": 14.7
+  },
+  {
+   "task_id": "diag-014",
+   "status": "empty",
+   "duration_s": 14.3
+  },
+  {
+   "task_id": "diag-015",
+   "status": "empty",
+   "duration_s": 8.6
+  },
+  {
+   "task_id": "verify-001",
+   "status": "empty",
+   "duration_s": 11.6
+  },
+  {
+   "task_id": "verify-006",
+   "status": "empty",
+   "duration_s": 9.4
+  },
+  {
+   "task_id": "verify-010",
+   "status": "empty",
+   "duration_s": 11.0
+  },
+  {
+   "task_id": "know-001",
+   "status": "empty",
+   "duration_s": 11.9
+  },
+  {
+   "task_id": "know-002",
+   "status": "empty",
+   "duration_s": 14.7
+  },
+  {
+   "task_id": "know-005",
+   "status": "empty",
+   "duration_s": 15.4
+  },
+  {
+   "task_id": "know-014",
+   "status": "empty",
+   "duration_s": 10.8
+  },
+  {
+   "task_id": "ops-001",
+   "status": "empty",
+   "duration_s": 12.1
+  },
+  {
+   "task_id": "ops-009",
+   "status": "empty",
+   "duration_s": 18.0
+  },
+  {
+   "task_id": "ops-011",
+   "status": "empty",
+   "duration_s": 15.1
+  },
+  {
+   "task_id": "stat-001",
+   "status": "empty",
+   "duration_s": 8.1
+  },
+  {
+   "task_id": "stat-002",
+   "status": "empty",
+   "duration_s": 9.1
+  },
+  {
+   "task_id": "stat-006",
+   "status": "empty",
+   "duration_s": 8.2
+  }
+ ]
+}

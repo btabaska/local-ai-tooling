@@ -72,13 +72,27 @@ come from already-sanitized repo sources; transcript mining lands in loop 2 with
 
 ## Running
 
+Execute ON THE RIG (rsync `evals/` to `/tmp/evals-pilot/`, run detached):
+
 ```sh
-python3 evals/bin/run_eval.py --cards evals/datasets/pilot-2026-08-14/cards.jsonl \
-  --model litellm/coder --out evals/results/pilot-coder
+python3 bin/run_eval.py --cards datasets/pilot-2026-08-14/cards.jsonl \
+  --model litellm/coder --agent evalplan --oc-config /tmp/evals-pilot/opencode-eval.json \
+  --out results/pilot-coder
 ```
 
-Run OUTSIDE 01:00–07:00 EDT (Immich ML pins rig VRAM; big models OOM). One big model at a
-time (llama-swap swaps on demand; first call per model pays load latency).
+Then pull results back and build the judge bundle:
+
+```sh
+python3 evals/bin/judge_bundle.py --cards evals/datasets/pilot-2026-08-14/cards.jsonl \
+  --results evals/results/pilot-coder
+```
+
+Known issue: on the Mac, `opencode run` (CLI, v1.18.10) hangs at instance init in every
+mode (--pure, minimal config, git/non-git cwd; stack = idle kevent64 wait) while
+`opencode serve` works fine — headless runs therefore happen on the rig, which is the
+deployment-representative host anyway. Run OUTSIDE 01:00–07:00 EDT (Immich ML pins rig
+VRAM; big models OOM). One big model at a time (llama-swap swaps on demand; first call
+per model pays load latency).
 
 ## Roadmap
 

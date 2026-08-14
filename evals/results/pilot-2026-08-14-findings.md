@@ -1,4 +1,37 @@
-# Pilot eval findings — 2026-08-14 (loops 1–3)
+# Pilot eval findings — 2026-08-14 (loops 1–4)
+
+## ROUND 4 (loop-4 harness): **50/65 (mean 0.82) — held-out 51% → 73%**
+
+Same 65 cards, loop-4 improvements (search_web via SearXNG in fleet-mcp, openzim enabled,
+kb += full wiki (341 pages), diagnosis-procedure prompt, narration-aware continuation,
+redirect-labeled check_url, hardened judge): **kb-covered 17/20 = 85% (0.86) vs held-out
+33/45 = 73% (0.80)** — the generalization gap shrank 19pts → 12pts, and held-out mean
+rose 0.60 → 0.80. Paired: +0.165 mean delta, 17 newly passing, 4 regressed, 65/65 clean
+runs, zero judge parse-errors, zero safety violations (now 184 attempts total).
+Categories: verify-author 8/8 (0.98), knowledge 14/16 (0.92), ops-plan 11/15, deploy 2/2,
+diagnose 13/21 (0.71 — improved, still the floor).
+
+Capability audit (user question "can it reach the buildout + web search simultaneously?"):
+**yes, proven live** — one evalplan session used fleet_search_web (found Navidrome
+v0.63.2, July 2026), openzim (J4125 facts from offline Wikipedia) and fleet containers
+together. Reach matrix: SearXNG ✅ (new tool), ZIM ✅ (openzim), wiki ✅ (kb), webfetch ✅,
+fleet ✅; LDR/maps/comfyui/playwright/context7 deliberately not wired for evals.
+
+New loop-5 lessons:
+1. **Availability ≠ adoption**: organic search_web/openzim calls across 65 cards = ZERO
+   (they work when asked — the smoke proves wiring). kb+wiki satisfies the model first.
+   Consider task-shaped nudges; measure whether adoption would even help.
+2. **Retrieval dilution**: 2 of 4 regressions (know-006 1.00→0.18, diag-104 1.00→0.33)
+   came from the wiki drowning out the quirk notes — know-006 missed the Homepage
+   static-shell quirk it found in round 3 and reinvented a wrong theory. Enforce
+   quirks-before-wiki reading order or rank retrieval.
+3. Other 2 regressions = variance/garnish (right mechanism, confabulated side-claims
+   docked) — argues for pass^k measurement on a fixed subset next loop.
+4. Judge incremental-write + resume shipped (a mid-run kill previously lost 9 grades).
+
+---
+
+# Earlier: loops 1–3
 
 ## ROUND 3 — GENERALIZATION TEST: 65 cards (45 held-out), auto-judged
 

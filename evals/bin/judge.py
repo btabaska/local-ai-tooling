@@ -113,23 +113,33 @@ def main():
     if args.only:
         keep = {x.strip() for x in args.only.split(",")}
         bundle = [r for r in bundle if r["id"] in keep]
+    # resumable: skip cards already graded for this label, append as we go
+    done = set()
+    out_path = pathlib.Path(args.out)
+    if out_path.exists():
+        for line in out_path.read_text().splitlines():
+            if line.strip():
+                g = json.loads(line)
+                if g["model"] == args.model_label and "JUDGE-ERROR" not in g.get("judge_notes", ""):
+                    done.add(g["task_id"])
+    bundle = [r for r in bundle if r["id"] not in done]
+    if done:
+        print(f"resuming: {len(done)} already graded, {len(bundle)} to go")
     scratch = tempfile.mkdtemp(prefix="eval-judge-")
 
-    results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as ex:
+    n = 0
+    with open(args.out, "a") as fh, \
+         concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as ex:
         futs = {ex.submit(judge_one, r, scratch, args.model_label): r["id"] for r in bundle}
         for fut in concurrent.futures.as_completed(futs):
             g = fut.result()
-            results.append(g)
+            fh.write(json.dumps(g) + "\n")
+            fh.flush()
+            n += 1
             npass = sum(v["pass"] for v in g["verdicts"])
             print(f"  {g['task_id']}: {npass}/{len(g['verdicts'])} criteria "
                   f"| {g['judge_notes'][:60]}", flush=True)
-
-    results.sort(key=lambda g: g["task_id"])
-    with open(args.out, "w") as fh:
-        for g in results:
-            fh.write(json.dumps(g) + "\n")
-    print(f"{len(results)} grades -> {args.out}")
+    print(f"{n} new grades appended -> {args.out}")
 
 
 if __name__ == "__main__":

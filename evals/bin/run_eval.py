@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import time
 
@@ -89,33 +90,60 @@ def extract(events):
     return final_text, tool_calls
 
 
+CONTINUE_MSG = ("Give your final, complete answer to the original question now, "
+                "based on everything you have found so far. Do not call any more tools.")
+
+
+def _invoke(cmd, workdir, env, timeout):
+    try:
+        proc = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True,
+                              timeout=timeout, env=env)
+        return proc.stdout, proc.stderr, proc.returncode, "ok"
+    except subprocess.TimeoutExpired as ex:
+        stdout = ex.stdout.decode() if isinstance(ex.stdout, bytes) else (ex.stdout or "")
+        stderr = ex.stderr.decode() if isinstance(ex.stderr, bytes) else (ex.stderr or "")
+        return stdout, stderr, -1, "timeout"
+
+
 def run_card(card, args, attempts_dir):
     adir = attempts_dir / card["id"]
     workdir = adir / "workdir"
     workdir.mkdir(parents=True, exist_ok=True)
+    if args.kb:
+        kb_dst = workdir / "kb"
+        if not kb_dst.exists():
+            shutil.copytree(args.kb, kb_dst)
     msg = PREAMBLE + card["input"]
-    cmd = ["opencode", "run", msg, "-m", args.model, "--agent", args.agent, "--format", "json"]
+    base = ["opencode", "run", "-m", args.model, "--agent", args.agent,
+            "--format", "json", "--auto"]
     if args.pure:
-        cmd.append("--pure")
+        base.append("--pure")
     env = dict(os.environ)
     if args.oc_config:
         env["OPENCODE_CONFIG"] = args.oc_config
     t0 = time.time()
-    status = "ok"
-    try:
-        proc = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True,
-                              timeout=args.timeout, env=env)
-        stdout, stderr, rc = proc.stdout, proc.stderr, proc.returncode
-    except subprocess.TimeoutExpired as ex:
-        stdout = ex.stdout.decode() if isinstance(ex.stdout, bytes) else (ex.stdout or "")
-        stderr = ex.stderr.decode() if isinstance(ex.stderr, bytes) else (ex.stderr or "")
-        rc, status = -1, "timeout"
+    stdout, stderr, rc, status = _invoke(base + [msg], workdir, env, args.timeout)
+    events, noise = parse_events(stdout.splitlines())
+    final_text, tool_calls = extract(events)
+    continued = False
+
+    # end-without-answer backstop: continue the session and demand the answer
+    if status == "ok" and len(final_text) < 300:
+        sid = next((e.get("sessionID") for e in events if e.get("sessionID")), None)
+        if sid:
+            continued = True
+            out2, err2, rc2, st2 = _invoke(base + ["-s", sid, CONTINUE_MSG],
+                                           workdir, env, min(args.timeout, 300))
+            stdout += "\n" + out2
+            stderr += "\n" + err2
+            events, noise = parse_events(stdout.splitlines())
+            final_text, tool_calls = extract(events)
+            if st2 == "timeout":
+                status = "timeout"
     duration = round(time.time() - t0, 1)
 
     (adir / "trajectory.jsonl").write_text(stdout)
     (adir / "err.log").write_text(stderr)
-    events, noise = parse_events(stdout.splitlines())
-    final_text, tool_calls = extract(events)
     if status == "ok" and not final_text:
         status = "empty"
     attempt = {
@@ -124,6 +152,7 @@ def run_card(card, args, attempts_dir):
         "model": args.model,
         "agent": args.agent,
         "status": status,
+        "continued": continued,
         "exit_code": rc,
         "duration_s": duration,
         "n_events": len(events),
@@ -144,6 +173,7 @@ def main():
     ap.add_argument("--only")
     ap.add_argument("--timeout", type=int, default=600)
     ap.add_argument("--oc-config", help="path exported as OPENCODE_CONFIG for the run")
+    ap.add_argument("--kb", help="knowledge-base dir copied into each attempt workdir as kb/")
     ap.add_argument("--pure", action="store_true", default=True,
                     help="pass --pure to opencode (skip external plugins; default on)")
     ap.add_argument("--no-pure", dest="pure", action="store_false")

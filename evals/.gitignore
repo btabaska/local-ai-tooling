@@ -1,3 +1,4 @@
 datasets/generated/
 results/*/attempts/
 *.local.*
+kb/

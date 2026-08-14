@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import time
@@ -93,6 +94,19 @@ def extract(events):
 CONTINUE_MSG = ("Give your final, complete answer to the original question now, "
                 "based on everything you have found so far. Do not call any more tools.")
 
+# an attempt "ends unanswered" when it is short OR reads as investigation
+# narration with no conclusion (length alone missed diag-006 in round 3)
+INCONCLUSIVE_RE = re.compile(
+    r"(?i)(let me|now let me|now i(?:'|’)ll|i(?:'|’)ll (?:check|look|read|search|probe|dig)|"
+    r"next,? i)\b[^.]{0,120}$|[:;]\s*$")
+
+
+def ends_unanswered(text):
+    if len(text) < 300:
+        return True
+    tail = text.rstrip()[-250:]
+    return bool(INCONCLUSIVE_RE.search(tail))
+
 
 def _invoke(cmd, workdir, env, timeout):
     try:
@@ -128,7 +142,7 @@ def run_card(card, args, attempts_dir):
     continued = False
 
     # end-without-answer backstop: continue the session and demand the answer
-    if status == "ok" and len(final_text) < 300:
+    if status == "ok" and ends_unanswered(final_text):
         sid = next((e.get("sessionID") for e in events if e.get("sessionID")), None)
         if sid:
             continued = True

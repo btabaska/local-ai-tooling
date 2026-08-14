@@ -19,6 +19,7 @@ import subprocess
 import json
 import os
 import time
+import urllib.parse
 import urllib.request
 
 from mcp.server.fastmcp import FastMCP
@@ -123,7 +124,9 @@ def system_overview(host: str) -> str:
 
 @mcp.tool()
 def check_url(url: str) -> str:
-    """HTTP status + latency for an internal URL (tabaska.us / ts.net / LAN only)."""
+    """HTTP status + latency for an internal URL (tabaska.us / ts.net / LAN only).
+    Redirects are followed and reported — a '302 login redirect' service shows as
+    'HTTP 200 (followed redirect ...)', which usually means alive, not broken."""
     if not URL_ALLOW.match(url):
         return "ERROR: URL not in the internal allowlist"
     t0 = time.time()
@@ -132,9 +135,36 @@ def check_url(url: str) -> str:
         with urllib.request.urlopen(req, timeout=10) as r:
             code = r.status
             body = r.read(200)
-        return f"HTTP {code} in {(time.time()-t0)*1000:.0f} ms; first bytes: {body[:120]!r}"
+            final = r.geturl()
+        note = f" (followed redirect -> {final})" if final.rstrip("/") != url.rstrip("/") else ""
+        return f"HTTP {code}{note} in {(time.time()-t0)*1000:.0f} ms; first bytes: {body[:120]!r}"
     except Exception as e:
         return f"ERROR after {(time.time()-t0)*1000:.0f} ms: {type(e).__name__}: {e}"
+
+
+@mcp.tool()
+def search_web(query: str, max_results: int = 8) -> str:
+    """Web search via the homelab's own SearXNG metasearch (searxng.tabaska.us).
+    Use for anything about software versions, upstream APIs/behavior, error messages,
+    or current events you are not certain of. Returns title, URL and snippet per hit."""
+    if not query or len(query) > 300:
+        return "TOOL-ERROR: query must be 1-300 characters"
+    max_results = max(1, min(int(max_results), 15))
+    q = urllib.parse.urlencode({"q": query, "format": "json"})
+    try:
+        with urllib.request.urlopen(f"https://searxng.tabaska.us/search?{q}", timeout=15) as r:
+            data = json.load(r)
+    except Exception as e:
+        return (f"TOOL-ERROR: SearXNG unreachable ({type(e).__name__}: {e}) — "
+                f"a search-stack problem, not evidence about your question")
+    results = data.get("results", [])[:max_results]
+    if not results:
+        return f"0 results for {query!r} (SearXNG reachable; try different terms)"
+    lines = [f"{len(results)} results for {query!r}:"]
+    for i, res in enumerate(results, 1):
+        snippet = (res.get("content") or "").replace("\n", " ")[:200]
+        lines.append(f"{i}. {res.get('title','')[:100]}\n   {res.get('url','')}\n   {snippet}")
+    return "\n".join(lines)
 
 
 @mcp.tool()

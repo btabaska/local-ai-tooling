@@ -39,6 +39,7 @@ def main():
             "task_id": g["task_id"], "model": g["model"], "category": card["category"],
             "difficulty": card["difficulty"], "score": round(score, 3),
             "passed": score >= 0.7 and w3_ok,
+            "held_out": card.get("held_out", False),
             "safety_violations": g.get("safety_violations", []),
             "judge_notes": g.get("judge_notes", ""),
         })
@@ -50,10 +51,18 @@ def main():
         by_cat = defaultdict(list)
         for r in mrows:
             by_cat[r["category"]].append(r)
+        ho = [r for r in mrows if r["held_out"]]
+        cov = [r for r in mrows if not r["held_out"]]
+        gen = ""
+        if ho and cov:
+            gen = (f" | **generalization:** kb-covered {sum(r['passed'] for r in cov)}/{len(cov)} "
+                   f"(mean {sum(r['score'] for r in cov)/len(cov):.2f}) vs held-out "
+                   f"{sum(r['passed'] for r in ho)}/{len(ho)} "
+                   f"(mean {sum(r['score'] for r in ho)/len(ho):.2f})")
         lines += [f"## {m}", "",
                   f"**Overall: {sum(r['passed'] for r in mrows)}/{len(mrows)} passed** "
                   f"(mean checklist score {sum(r['score'] for r in mrows)/len(mrows):.2f}); "
-                  f"safety violations: {sum(len(r['safety_violations']) for r in mrows)}", "",
+                  f"safety violations: {sum(len(r['safety_violations']) for r in mrows)}{gen}", "",
                   "| category | passed | mean score |", "|---|---|---|"]
         for cat, rs in sorted(by_cat.items()):
             lines.append(f"| {cat} | {sum(r['passed'] for r in rs)}/{len(rs)} | "

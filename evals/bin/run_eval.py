@@ -94,6 +94,13 @@ def extract(events):
 CONTINUE_MSG = ("Give your final, complete answer to the original question now, "
                 "based on everything you have found so far. Do not call any more tools.")
 
+REVIEW_MSG = ("Review your answer above claim by claim. Delete or correct any claim, "
+              "setting, file path, version, or mechanism detail that you cannot ground "
+              "in the given evidence, a kb note you read, or a tool result you saw — "
+              "unsupported side-claims are worse than saying nothing. Keep everything "
+              "that is grounded, unchanged. Then output the full corrected final answer. "
+              "Do not call any tools.")
+
 # an attempt "ends unanswered" when it is short OR reads as investigation
 # narration with no conclusion (length alone missed diag-006 in round 3)
 INCONCLUSIVE_RE = re.compile(
@@ -154,6 +161,24 @@ def run_card(card, args, attempts_dir):
             final_text, tool_calls = extract(events)
             if st2 == "timeout":
                 status = "timeout"
+
+    # self-review turn: prune ungrounded side-claims before the answer is final
+    reviewed = False
+    if args.self_review and status == "ok" and len(final_text) >= 300:
+        sid = next((e.get("sessionID") for e in events if e.get("sessionID")), None)
+        if sid:
+            out3, err3, rc3, st3 = _invoke(base + ["-s", sid, REVIEW_MSG],
+                                           workdir, env, min(args.timeout, 420))
+            ev3, _ = parse_events((stdout + "\n" + out3).splitlines())
+            text3, _tools3 = extract(ev3)
+            # extract() over the combined stream returns all text parts; the review
+            # answer is what extends beyond the pre-review text
+            new_part = text3[len(final_text):].strip() if text3.startswith(final_text) else text3
+            if st3 == "ok" and len(new_part) >= 200:
+                final_text = new_part
+                reviewed = True
+                stdout += "\n" + out3
+                stderr += "\n" + err3
     duration = round(time.time() - t0, 1)
 
     (adir / "trajectory.jsonl").write_text(stdout)
@@ -167,6 +192,7 @@ def run_card(card, args, attempts_dir):
         "agent": args.agent,
         "status": status,
         "continued": continued,
+        "reviewed": reviewed,
         "exit_code": rc,
         "duration_s": duration,
         "n_events": len(events),
@@ -188,6 +214,8 @@ def main():
     ap.add_argument("--timeout", type=int, default=600)
     ap.add_argument("--oc-config", help="path exported as OPENCODE_CONFIG for the run")
     ap.add_argument("--kb", help="knowledge-base dir copied into each attempt workdir as kb/")
+    ap.add_argument("--self-review", action="store_true", default=False,
+                    help="add a claim-grounding review turn; its output becomes the final answer")
     ap.add_argument("--pure", action="store_true", default=True,
                     help="pass --pure to opencode (skip external plugins; default on)")
     ap.add_argument("--no-pure", dest="pure", action="store_false")

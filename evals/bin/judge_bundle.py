@@ -49,6 +49,10 @@ def main():
                     contaminated.append(f"{part.get('tool')}: {inp[:120]}")
         attempt_path = adir / "attempt.json"
         attempt = json.loads(attempt_path.read_text()) if attempt_path.exists() else {}
+        if attempt.get("reviewed"):
+            # runner already selected the post-review answer; re-extraction would
+            # concatenate pre- and post-review text — keep the runner's selection
+            final_text = attempt.get("final_text", final_text)
         attempt.update({
             "final_text": final_text,
             "tool_calls": tool_calls,

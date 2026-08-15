@@ -118,8 +118,9 @@ def container_logs(host: str, container: str, lines: int = 100) -> str:
 
 @mcp.tool()
 def system_overview(host: str) -> str:
-    """Uptime, memory, disk and load for a host."""
-    return _run(host, "uptime; echo; free -h 2>/dev/null | head -2; echo; df -h / /volume1 2>/dev/null | head -5")
+    """Uptime, memory, disk and load for a host (all NAS volumes included)."""
+    return _run(host, "uptime; echo; free -h 2>/dev/null | head -2; echo; "
+                      "df -h / /volume1 /volume2 /volume3 2>/dev/null | head -8")
 
 
 @mcp.tool()

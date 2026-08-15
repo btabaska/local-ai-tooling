@@ -70,7 +70,10 @@ def main():
     index = (MEMORY_DIR / "MEMORY.md").read_text()
     index = "\n".join(l for l in index.splitlines()
                       if "local-ai-eval-loop" not in l and not l.startswith("# "))
-    (out / "INDEX.md").write_text(HEADER + index.strip() + "\n")
+    runbooks = sorted((WIKI_DIR / "runbooks").glob("*.md")) if WIKI_DIR.is_dir() else []
+    rb_lines = ["", "## Wiki runbooks (kb/wiki/runbooks/) — read the specific file, don't shotgun-grep", ""]
+    rb_lines += [f"- {f.name}" for f in runbooks if f.name != "index.md"]
+    (out / "INDEX.md").write_text(HEADER + index.strip() + "\n" + "\n".join(rb_lines) + "\n")
     (out / "CLAUDE-context.md").write_text(CLAUDE_MD.read_text())
     # full wiki (committed, already-sanitized repo docs — no secret scan needed)
     n_wiki = 0

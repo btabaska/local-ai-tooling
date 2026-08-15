@@ -1,4 +1,28 @@
-# Pilot eval findings — 2026-08-14 (loops 1–4)
+# Pilot eval findings — 2026-08-14/15 (loops 1–5)
+
+## ROUND 5 (loop-5): 51/65 (0.82) — held-out 80%; **pass^3 says consistency is now the frontier**
+
+Loop-5 changes (quirks-first retrieval routing + INDEX runbook router, search-adoption
+nudge, all-volumes system_overview): all six targeted chronic/regression cards fixed
+(know-006 0.18→1.00, stat-005 0.43→1.00 — that one was a TOOL gap, diag-106/108,
+ops-101, know-108). Aggregate flat vs round 4 (paired mean −0.002) because 5 *different*
+cards wobbled down — we've hit the single-sample measurement ceiling (~±5 cards churn
+per run at temp 0.6). Zero judge parse errors (hardening worked). Knowledge 16/16
+(0.99), status 3/3, verify 8/8, deploy 2/2; diagnose remains the discriminator.
+
+**pass^k on the fixed 12-card subset (3 runs each): pass@1 8/12, pass-any-of-3 11/12,
+pass^3 6/12.** kb-retrieval-backed cards are deterministic (6/6 stable P-P-P); every
+flapper is a reasoning-heavy diagnose/ops card. diag-011 is the only 0/3 (genuine gap).
+Adoption nudge barely moved organic search (2 calls, 1 card). diag-105 produced one
+empty session (one-off).
+
+→ Loop-6 lever: **sampling temperature for ops work** (0.6 → 0.2), single-variable
+re-run + subset ×3. Expect flappers to consolidate; watch for any creativity loss on
+planning cards.
+
+---
+
+# Earlier: loops 1–4
 
 ## ROUND 4 (loop-4 harness): **50/65 (mean 0.82) — held-out 51% → 73%**
 

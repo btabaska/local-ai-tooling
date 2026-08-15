@@ -49,7 +49,7 @@
     "evalplan": {
       "mode": "primary",
       "model": "litellm/coder",
-      "temperature": 0.6,
+      "temperature": 0.2,
       "top_p": 0.95,
       "permission": { "edit": "deny", "bash": "deny" },
       "tools": { "fleet*": true, "fleet*run_verification*": false, "openzim*": true },

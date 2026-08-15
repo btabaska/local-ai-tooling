@@ -1,4 +1,29 @@
-# Pilot eval findings — 2026-08-14/15 (loops 1–5)
+# Pilot eval findings — 2026-08-14/15 (loops 1–7)
+
+## LOOPS 6–7 (single-variable consistency experiments): both NULL — the plateau is model-bound
+
+- **Round 6, temp 0.2**: 48/65 (0.78). Diagnose crashed 12→8/21 via reasoning spirals
+  (length-empties → 600s timeouts even at 16k output); any-of-3 ceiling shrank 11→9;
+  pass^3 flat 6/12. REVERTED to temp 0.6 (kept 16k output headroom).
+- **Round 7, claim-grounding self-review turn**: 49/65 (0.82, held-out mean 0.81 = best);
+  65/65 clean (review turn doubles as empty-recovery); organic search still 0. pass^3
+  again 6/12, any-of-3 8/12 with over-pruning signs on ops cards. NOT adopted as default
+  (--self-review stays opt-in).
+- **The stable core is production-grade**: knowledge/verify/status/deploy ≈ 29/29 at
+  best-config, and the six kb-backed subset cards are 9-for-9 runs across ALL THREE
+  configurations. The six flappy diagnose/ops cards flip regardless of temperature or
+  review — run-to-run reasoning paths genuinely diverge at the 35B capability boundary.
+- **Program conclusion after 7 loops**: harness gains are exhausted at ~50/65 (0.82),
+  held-out ~73-80%. Best config = loop-5 harness (temp 0.6, 16k output, quirks-first kb,
+  fleet+search+openzim tools). Remaining levers are NOT harness: (1) a stronger base
+  model in llama-swap when available; (2) **deployment routing policy** — serve
+  knowledge/status/verify/runbook queries locally (measured ~95-100%), escalate novel
+  incident diagnosis to Claude (local ~55-65% single-shot); (3) grow the suite from
+  scrubbed transcripts; (4) OWUI lane after lai-21.
+
+---
+
+# Earlier: loop 5
 
 ## ROUND 5 (loop-5): 51/65 (0.82) — held-out 80%; **pass^3 says consistency is now the frontier**
 

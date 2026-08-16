@@ -1,4 +1,51 @@
-# Pilot eval findings — 2026-08-14/15 (loops 1–7)
+# Pilot eval findings — 2026-08-14/16 (loops 1–7 + model bake-off)
+
+## MODEL BAKE-OFF (2026-08-16, all lanes on llama.cpp b10438, identical harness/judge)
+
+| model | overall | mean | held-out | diagnose | knowledge | ops-plan | sec/card |
+|---|---|---|---|---|---|---|---|
+| **coder-strong (qwen3.6-27B dense)** | **55/65** | **0.86** | **37/45 (0.85)** | **14/21** | **16/16** | 12/15 | ~190s |
+| coder (qwen3.6-35B-A3B MoE) | 46/65 | 0.80 | 30/45 (0.77) | 9/21 | 15/16 | 9/15 | ~90s |
+| chat (gemma4-31B, rig-thinker base) | 38/65 | 0.70 | 25/45 (0.67) | 8/21 | 15/16 | 4/15 | ~110s |
+| qwen3.8-27B | — infeasible (see below) | | | | | | 600s+ |
+
+**coder-strong is the quality king — best score ever recorded on the suite** (prior best
+51/65), sweeping every category incl. best-ever diagnose and held-out. The dense 27B's
+per-token compute beats the 3B-active MoE exactly where the loops said the wall was.
+Cost: ~2× latency, 114k vs 262k ctx. coder [bake] 46 vs its 49–51 prior = within churn.
+gemma4 trails on planning/diagnosis but holds retrieval categories (knowledge/verify/
+status stay ≥0.92 across ALL models — those wins are harness+kb, not model).
+Zero safety violations in all 195 bake attempts. Original why-not-tested-earlier
+concession partially vindicated: the plateau was ~5-9 cards lower than the stack's
+actual ceiling.
+
+**Qwen3.8-27B verdict: NOT deployable as the agentic ops brain today; healthy otherwise.**
+- xhigh (default) thinking: 6/8 cards hit the 600s timeout. reasoning_effort medium
+  (native `--reasoning-effort` flag; the `--chat-template-kwargs` JSON gets mangled by
+  llama-swap arg-splitting → startup crash): STILL 600s+ on agentic cards.
+- Discriminator: 22k-token SINGLE-turn = 24s with sane reasoning → the model is healthy;
+  the killer is multi-turn cache thrash — the DeltaNet-hybrid arch reprocesses the full
+  context every tool round in llama.cpp (cf. #22746), and eval cards run 10-40 rounds.
+- Keep the llama-swap entry for single-turn/chat/vision duty; DO NOT route agentic work
+  to it. Revisit on: llama.cpp hybrid-cache reuse fix, an A3B-class 3.8 release, or
+  independent 27B benchmarks (none exist yet — all vendor numbers).
+
+**Infra shipped with the bake:** llama-swap b10015→b10438 (digest bump, 19/19 local-ai
+checks + calibrated rerank-spread + MTP + swarm all clean — note: run the suite as
+btabaska, not sudo/root: root lacks the rig ssh alias and all rig-side checks false-fail);
+scoped eval LiteLLM key (vault ai_stack.litellm_eval_key) after discovering **virtual
+keys are model-scoped and /v1/models listings lie** (chat+q38 403'd on completions);
+q38 LiteLLM alias; one-night Immich-ML window skip (timer restored, day-off state
+corrected after Persistent catch-up fired it at noon).
+
+**Recommendation (deployment routing):** `coder-strong` = primary ops/diagnosis brain
+(quality); `coder` = interactive/long-context/speed lane and coding default; gemma4 =
+chat duty only; q38 = shelf until the ecosystem catches up. pass^k for coder-strong not
+yet measured — queue subset ×3 before declaring its consistency.
+
+---
+
+# Earlier: loops 1–7
 
 ## LOOPS 6–7 (single-variable consistency experiments): both NULL — the plateau is model-bound
 

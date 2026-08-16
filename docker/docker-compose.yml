@@ -230,9 +230,11 @@ services:
   # /home on purpose: restic must not back up re-pullable weights).
   # UI/activity: http://rig:9292/ui   Unload-all: POST /api/models/unload
   llama-swap:
-    # lai-07 (2026-08-06): pinned by digest (was rolling :cuda; llama.cpp b10015,
-    # image built 2026-07-16). Re-resolve + bump to update.
-    image: ghcr.io/mostlygeek/llama-swap:cuda@sha256:e92ecef6998891cfaf36c1f2768dd7db43eaea6667c27d646271e43058550fee
+    # lai-07 (2026-08-06): pinned by digest (was rolling :cuda). Re-resolve + bump to update.
+    # 2026-08-15 bump: llama.cpp b10015 -> b10438 (Qwen3.8 GGUFs need >=b10419).
+    # Post-bump regression sweep: MTP on qwen3.6-27b, swarm --reasoning flags,
+    # reranker sigmoid scores (rerank-spread check), all big-group models.
+    image: ghcr.io/mostlygeek/llama-swap:cuda@sha256:686afd4625e3728ed451c56fa09dd4ca544425fd12254aa6102d3eee56495706
     container_name: llama-swap
     restart: unless-stopped
     ports:

@@ -53,6 +53,20 @@ models:
       --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 
+  # Qwen3.8-27B trial (2026-08-15, eval bake-off): unsloth UD-Q4_K_XL 17.9G,
+  # post-Aug-14 template-fixed upload. HF card thinking samplers: temp 1.0
+  # top_p 0.95 top_k 20 (NOTE: moved from 0.6 in the 3.6 gen). No MTP flags
+  # yet (plain GGUF; -MTP companion untested on b10438). ctx conservative.
+  "qwen3.8-27b":
+    name: "Qwen3.8 27B (dense VLM, trial — text-only serving)"
+    cmd: |
+      ${srv}
+      --model /models/qwen3.8-27b.gguf
+      --ctx-size 98304
+      --parallel 1
+      --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0
+    ttl: 120
+
   # HF card (thinking, precise coding): temp 0.6 top_p 0.95 top_k 20 min_p 0.
   "qwen3.6-35b-a3b":
     name: "Qwen3.6 35B-A3B (MoE Q4, 23G weights — VRAM-tight)"
@@ -312,6 +326,7 @@ groups:
     exclusive: true
     members:
       - "qwen3.6-27b"
+      - "qwen3.8-27b"   # 2026-08-15 trial
       - "qwen3.6-35b-a3b"
       - "qwen3.6-35b-a3b-swarm"   # ai-10; same weights, --parallel 4 profile
       - "gemma4-31b-qat"

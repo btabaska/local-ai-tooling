@@ -59,11 +59,15 @@ models:
   # yet (plain GGUF; -MTP companion untested on b10438). ctx conservative.
   "qwen3.8-27b":
     name: "Qwen3.8 27B (dense VLM, trial — text-only serving)"
+    # reasoning_effort medium: the xhigh DEFAULT burned 600s/answer on evidence-
+    # heavy ops questions (6/8 eval timeouts, 2026-08-16) — xhigh is unusable
+    # interactively on this card; medium is the deployable posture.
     cmd: |
       ${srv}
       --model /models/qwen3.8-27b.gguf
       --ctx-size 98304
       --parallel 1
+      --chat-template-kwargs {"reasoning_effort":"medium"}
       --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 

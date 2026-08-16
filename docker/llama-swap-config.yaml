@@ -67,7 +67,7 @@ models:
       --model /models/qwen3.8-27b.gguf
       --ctx-size 98304
       --parallel 1
-      --chat-template-kwargs {"reasoning_effort":"medium"}
+      --reasoning-effort medium
       --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 

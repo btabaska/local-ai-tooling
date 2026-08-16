@@ -496,8 +496,35 @@ services:
     ports:
       - "8931:8931"
 
+  # ── bioclip-api (plant/species ID, 2026-08-16) ────────────────────────────
+  # BioCLIP 2 (imageomics, TreeOfLife-200M, ~925k taxa) behind a thin FastAPI.
+  # Consumer = the OWUI `identify_plant` workspace tool (chat photo -> top-k
+  # ranked taxa). CPU inference BY DESIGN: the 3090 Ti stays budgeted for
+  # llama-swap (a 22GB+ resident LLM leaves <1GB VRAM); ViT-L/14 on CPU is
+  # ~2-5s/image. First /identify on a fresh volume downloads ~2GB of weights
+  # into bioclip_data (offline afterwards). Port 8199 must stay in the fix-51
+  # expected-listeners baseline (foss-setup verification/assets/).
+  bioclip-api:
+    build: ./bioclip-api
+    image: local/bioclip-api:pybioclip-2.1.6
+    container_name: bioclip-api
+    restart: unless-stopped
+    ports:
+      - "8199:8199"
+    environment:
+      BIOCLIP_DEVICE: cpu
+    volumes:
+      - bioclip_data:/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8199/health', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
 
 volumes:
+  bioclip_data:
   litellm_pgdata:
   open_webui_data:
   lumiverse-data:

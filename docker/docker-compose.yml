@@ -63,10 +63,10 @@ services:
 
   # ---- Open WebUI: the chat interface ----
   open-webui:
-    # lai-07 (2026-08-06): pinned by digest = v0.10.2 (was rolling :main; image built
-    # 2026-07-01). The 0.11.0 upgrade is its own task (lai-21): bump the digest there
-    # and re-verify the PersistentConfig env-vs-DB seeds at any upgrade.
-    image: ghcr.io/open-webui/open-webui:main@sha256:a26effeb220e132482bf7e0560b3404843e7bc40d23051144e062960df8df6b0
+    # lai-07 pinned v0.10.2 by digest; lai-21 (2026-08-16): bumped to v0.11.0 (sub-agents,
+    # startup-cached tool descriptions). Digest = tag v0.11.0 resolved 2026-08-16. Always
+    # re-verify the PersistentConfig env-vs-DB seeds at any upgrade.
+    image: ghcr.io/open-webui/open-webui:v0.11.0@sha256:72c0ba641ba75e7aa52655cb242570906ececd09b1140fb736483038a22b3228
     container_name: open-webui
     restart: unless-stopped
     ports:

@@ -63,22 +63,9 @@
             "context": 73728,
             "output": 8192
           }
-        }
-      }
-    },
-    "llamaswap": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "llama-swap direct (rig :9292, eval trial lane)",
-      "options": {
-        "baseURL": "http://localhost:9292/v1",
-        "apiKey": "none",
-        "timeout": 900000,
-        "headerTimeout": 180000,
-        "chunkTimeout": 300000
-      },
-      "models": {
-        "qwen3.8-27b": {
-          "name": "Qwen3.8 27B trial (98k ctx)",
+        },
+        "q38": {
+          "name": "q38 - Qwen3.8 27B trial (98k ctx)",
           "tool_call": true,
           "temperature": true,
           "limit": {

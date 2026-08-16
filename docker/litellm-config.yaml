@@ -45,6 +45,13 @@ model_list:
       api_base: http://llama-swap:8080/v1
       api_key: none
 
+  # Qwen3.8-27B bake-off trial (2026-08-15) — same gateway path as the others
+  - model_name: q38
+    litellm_params:
+      model: openai/qwen3.8-27b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
   # ---- General chat (default) ----
   - model_name: chat
     litellm_params:

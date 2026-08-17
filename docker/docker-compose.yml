@@ -540,10 +540,14 @@ services:
   # Studio. Unload llama-swap first (POST :9292/api/models/unload) for big
   # diffusion runs; daytime only [[rig-gpu-vram-contention]].
   #
-  # Studio auth = UNSLOTH_STUDIO_PASSWORD (vault ai_stack.unsloth_studio_password);
-  # JUPYTER/USER passwords set to the same value (their ports are unpublished).
-  # Connections/MCP/API-keys are configured IN-APP (DB-only, like OWUI) — the
-  # runbook (Home wiki runbooks/unsloth-studio.md) records the exact settings.
+  # Studio auth: this build IGNORES the UNSLOTH_STUDIO_PASSWORD env (kept below
+  # for forward-compat) — first boot writes a diceware passphrase to
+  # /workspace/studio/auth/.bootstrap_password; log in with it and
+  # change-password to vault ai_stack.unsloth_studio_password (file then
+  # self-deletes). JUPYTER/USER passwords: ports unpublished, values inert.
+  # Connections/MCP/API-keys are DB-only — canonical source is
+  # scripts/seed-unsloth-studio.py (rebuild-parity, like the OWUI seeds);
+  # runbook = Home wiki runbooks/unsloth-studio.md.
   unsloth-studio:
     image: unsloth/unsloth:latest@sha256:f21629b9ae4ed11231768edfaed0f40d41d85d6ea9a71e8096a3d96ea0311772
     container_name: unsloth-studio
@@ -552,6 +556,9 @@ services:
       - "8210:8000"
     devices:
       - nvidia.com/gpu=all
+    extra_hosts:
+      # fleet-mcp.service runs native on the rig host (:8765), like mcpo's bridge
+      - "host.docker.internal:host-gateway"
     environment:
       UNSLOTH_STUDIO_PASSWORD: ${UNSLOTH_STUDIO_PASSWORD}
       JUPYTER_PASSWORD: ${UNSLOTH_STUDIO_PASSWORD}

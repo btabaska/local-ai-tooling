@@ -14,7 +14,10 @@
 # ctx-size per model = MEASURED max that loads fully on GPU (bake-off
 # 2026-07-16, q8_0 KV + flash-attn, embedder CPU-pinned, desktop ~1 GiB):
 #   qwen3.6-27b MTP 114688 (23.4G; 131072 OOM)   35b-a3b 262144 = native max (23.3G)
-#   gemma4-qat 73728 (23.7G; 81920 OOM)          deckard 49152 (23.8G; 65536 OOM)
+#   gemma4-qat 65536 (22.1G, re-measured 2026-08-16: 73728 stopped fitting once
+#     desktop residents grew — ComfyUI CUDA ctx + Apollo NVENC + Steam ~0.8G;
+#     65536 leaves ~0.8G headroom under that load; 81920 OOM)
+#   deckard 49152 (23.8G; 65536 OOM)
 #   cydonia/dolphin-venice/goetia 73728 (22.8G; 81920 OOM) — identical Q5 24B
 #   qwen2.5-coder 32768 = native max             fast-3b 131072 = native max
 # These are edge fits (<1 GiB headroom) — the gaming force-unload hook is the
@@ -174,7 +177,7 @@ models:
     cmd: |
       ${srv}
       --model /models/gemma4-31b-qat.gguf
-      --ctx-size 73728
+      --ctx-size 65536
       --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 

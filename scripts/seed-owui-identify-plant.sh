@@ -6,7 +6,9 @@
 # same contract as seed-owui-tool-servers.sh.
 #
 # The tool finds the newest image attached to the chat (verified against the
-# v0.11.0 backend: __messages__[*].files / __files__), POSTs it to bioclip-api
+# v0.11.0 backend: image_url content parts for UI chats — the backend strips
+# message files pre-tool — plus __messages__[*].files / __files__ for raw API
+# callers), POSTs it to bioclip-api
 # (docker/bioclip-api, compose-internal http://bioclip-api:8199) and returns
 # ranked taxa. access_control=null => public to all household users.
 #

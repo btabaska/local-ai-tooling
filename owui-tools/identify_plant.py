@@ -1,7 +1,7 @@
 """
 title: Plant Identifier (BioCLIP 2)
 author: btabaska
-version: 0.1.0
+version: 0.1.1
 license: MIT
 description: Identify the plant (or any organism) in a chat-attached photo using the local bioclip-api on the rig (BioCLIP 2, TreeOfLife-200M). Fully local, no cloud.
 """
@@ -11,10 +11,16 @@ description: Identify the plant (or any organism) in a chat-attached photo using
 # contract as seed-owui-tool-servers.sh). Edit the repo copy, then re-seed.
 #
 # Image plumbing (verified against OWUI v0.11.0 backend):
-# - chat-attached images arrive in __messages__[*]["files"] with type=="image"
-#   (or content_type image/*) and a url that is either a data: URI or an
-#   /api/v1/files/<id>/content route;
-# - __files__ carries the chat-level file records ({"file": {"id": ...}}).
+# - UI chats (saved chat_id): process_chat_payload reloads messages from the
+#   chat DB, injects attached images into content as image_url parts, then
+#   STRIPS message["files"] (middleware.py `message.pop("files", None)`) —
+#   all BEFORE tools receive __messages__. So for every UI chat the image is
+#   ONLY findable as a {"type": "image_url"} content part (data: URI or an
+#   /api/v1/files/<id>/content route).
+# - Raw API callers (no saved chat): messages pass through untouched, so
+#   images arrive in __messages__[*]["files"] with type=="image" (or
+#   content_type image/*), and __files__ carries the chat-level file records
+#   ({"file": {"id": ...}}). Both shapes must be scanned.
 # - Tools run in-process, so /api/v1/files urls are resolved straight through
 #   open_webui.models.files.Files (async in 0.11) + Storage — no HTTP hop, no
 #   auth token needed.
@@ -37,6 +43,15 @@ def _candidate_urls(messages: list, files: list):
             ).startswith("image/")
             if is_image and f.get("url"):
                 yield f["url"]
+        # UI chats carry images ONLY as image_url content parts (the backend
+        # strips message["files"] before tools see __messages__ — see header).
+        content = message.get("content")
+        if isinstance(content, list):
+            for part in reversed(content):
+                if isinstance(part, dict) and part.get("type") == "image_url":
+                    url = (part.get("image_url") or {}).get("url")
+                    if url:
+                        yield url
     untyped = []
     for f in reversed(files or []):
         if not isinstance(f, dict):

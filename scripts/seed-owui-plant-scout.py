@@ -2,10 +2,11 @@
 """Create/update the 🌿 Plant Scout model preset in Open WebUI (2026-08-17).
 
 One-tap household flow: open OWUI -> Plant Scout -> camera -> send (no text
-needed). The preset rides the chat lane (gemma4-31b-qat + mmproj vision) with
-the identify_plant tool attached via meta.toolIds — the FRONTEND merges
-model.info.meta.toolIds into every chat request (Chat.svelte), so the tool is
-always available without the user selecting anything.
+needed). The preset rides the chat-vision lane (gemma4-31b-qat-vision + mmproj,
+split from the text-only chat lane 2026-08-17) with the identify_plant tool
+attached via meta.toolIds — the FRONTEND merges model.info.meta.toolIds into
+every chat request (Chat.svelte), so the tool is always available without the
+user selecting anything.
 
 Rebuild parity: model presets are DB-only (open_webui_data volume) — this
 script is the canonical source, same contract as seed-owui-prompt-presets.py.
@@ -61,7 +62,7 @@ Keep the whole report under ~350 words, warm but information-dense. If the photo
 FORM = {
     "id": "plant-scout",
     "name": "🌿 Plant Scout",
-    "base_model_id": "chat",
+    "base_model_id": "chat-vision",
     "meta": {
         "description": "Snap a photo → species ID (BioCLIP, local) + Rochester-NY invasive status, care, botany lesson, safety.",
         "profile_image_url": "/static/favicon.png",
@@ -89,6 +90,6 @@ else:
 rec = req("GET", "/api/v1/models/model?id=plant-scout")
 caps = (rec.get("meta") or {}).get("capabilities") or {}
 tools = (rec.get("meta") or {}).get("toolIds") or []
-assert rec.get("base_model_id") == "chat" and rec.get("is_active") and \
+assert rec.get("base_model_id") == "chat-vision" and rec.get("is_active") and \
     caps.get("vision") is True and "identify_plant" in tools, rec
-print("verified: base=chat vision=true toolIds=%s active=true" % tools)
+print("verified: base=chat-vision vision=true toolIds=%s active=true" % tools)

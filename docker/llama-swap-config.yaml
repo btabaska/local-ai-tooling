@@ -14,12 +14,12 @@
 # ctx-size per model = MEASURED max that loads fully on GPU (bake-off
 # 2026-07-16, q8_0 KV + flash-attn, embedder CPU-pinned, desktop ~1 GiB):
 #   qwen3.6-27b MTP 114688 (23.4G; 131072 OOM)   35b-a3b 262144 = native max (23.3G)
-#   gemma4-qat 49152+mmproj-F16 (vision, 2026-08-16 — user wants image input on
-#     chat. 65536 text-only was 22.1G; 57344+mmproj OOMed at the 1.14G clip
-#     buffer, 49152 fits — the vision tower costs two 8k ctx steps)
-#     (prior: 65536 text-only 22.1G, re-measured 2026-08-16: 73728 stopped fitting once
-#     desktop residents grew — ComfyUI CUDA ctx + Apollo NVENC + Steam ~0.8G;
-#     65536 leaves ~0.8G headroom under that load; 81920 OOM)
+#   gemma4-qat SPLIT 2026-08-17: text lane 65536 (22.1G; re-measured 2026-08-16:
+#     73728 stopped fitting once desktop residents grew — ComfyUI CUDA ctx +
+#     Apollo NVENC + Steam ~0.8G; 65536 leaves ~0.8G headroom; 81920 OOM);
+#     -vision lane 49152+mmproj-F16 (57344+mmproj OOMed at the 1.14G clip
+#     buffer — the vision tower costs two 8k ctx steps). Vision is Plant
+#     Scout's lane only (operator decision 2026-08-17).
 #   deckard 49152 (23.8G; 65536 OOM)
 #   cydonia/dolphin-venice/goetia 73728 (22.8G; 81920 OOM) — identical Q5 24B
 #   qwen2.5-coder 32768 = native max             fast-3b 131072 = native max
@@ -175,8 +175,25 @@ models:
 
   # ---- Chat ----
   # Gemma 4 official: temp 1.0 top_p 0.95 top_k 64. n_ctx_train 262144 (SWA).
+  # SPLIT 2026-08-17: vision moved to its own entry (Plant Scout is the only
+  # deliberate vision consumer — operator decision). Text lane back to 65536
+  # (the measured 2026-08-16 text-only fit: 22.1G, ~0.8G headroom under grown
+  # desktop residents; 73728/81920 OOM). Same weights, two configs — llama-swap
+  # swaps (unload/reload) when switching lanes; plant ID is occasional, fine.
   "gemma4-31b-qat":
-    name: "Gemma 4 31B IT QAT (17G weights)"
+    name: "Gemma 4 31B IT QAT (17G weights, text-only)"
+    cmd: |
+      ${srv}
+      --model /models/gemma4-31b-qat.gguf
+      --ctx-size 65536
+      --temp 1.0 --top-p 0.95 --top-k 64
+    ttl: 120
+
+  # Vision lane (LiteLLM `chat-vision`, OWUI Plant Scout preset): the 2026-08-16
+  # measured vision fit — 49152 + unsloth mmproj-F16; the 1.2G tower costs two
+  # 8k ctx steps (57344+mmproj OOMed at the 1.14G clip buffer).
+  "gemma4-31b-qat-vision":
+    name: "Gemma 4 31B IT QAT (17G weights + mmproj vision)"
     cmd: |
       ${srv}
       --model /models/gemma4-31b-qat.gguf

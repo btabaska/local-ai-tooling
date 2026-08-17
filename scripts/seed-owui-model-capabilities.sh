@@ -11,11 +11,14 @@
 # and a missing flag hides real vision (the mmproj-equipped lanes).
 #
 # Backend truth (llama-swap config):
-#   vision  : chat + rig-thinker (gemma4-31b-qat + mmproj, wired 2026-08-16),
-#             cydonia / dolphin-venice / goetia (shared Mistral mmproj, 2026-07-18)
-#   no vision: coder / code / coder-swarm / coder-strong (qwen3.6*), q38,
+#   vision  : chat-vision (gemma4-31b-qat-vision + mmproj — Plant Scout's lane,
+#             split 2026-08-17), cydonia / dolphin-venice / goetia (shared
+#             Mistral mmproj, 2026-07-18)
+#   no vision: chat + rig-thinker (base=chat; gemma text lane since the
+#             2026-08-17 split — mmproj removed, ctx back to 65536),
+#             coder / code / coder-swarm / coder-strong (qwen3.6*), q38,
 #             chat-creative (deckard-heretic, no mmproj), fast, utility,
-#             rig-coder (base=coder)
+#             rig-coder (base=coder; OWUI-deactivated 2026-08-17)
 #
 # Run ON rig:  OWUI_API_KEY=<admin api key> bash scripts/seed-owui-model-capabilities.sh
 # Key source:  foss-setup vault ai_stack.openwebui_rag_sync_api_key (admin).
@@ -31,8 +34,9 @@ BASE = os.environ["OWUI_URL"].rstrip("/")
 KEY = os.environ["OWUI_API_KEY"]
 
 VISION = {
-    "chat": True, "rig-thinker": True,
+    "chat-vision": True,
     "cydonia": True, "dolphin-venice": True, "goetia": True,
+    "chat": False, "rig-thinker": False,
     "coder": False, "code": False, "coder-swarm": False, "coder-strong": False,
     "q38": False, "chat-creative": False, "fast": False, "utility": False,
     "rig-coder": False,

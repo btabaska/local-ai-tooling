@@ -53,9 +53,18 @@ model_list:
       api_key: none
 
   # ---- General chat (default) ----
+  # 2026-08-17 split: chat = text-only (ctx 65536); chat-vision = mmproj lane
+  # (ctx 49152) for the OWUI Plant Scout preset — same gemma weights, separate
+  # llama-swap entries (switching lanes swaps the loaded model).
   - model_name: chat
     litellm_params:
       model: openai/gemma4-31b-qat
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
+  - model_name: chat-vision
+    litellm_params:
+      model: openai/gemma4-31b-qat-vision
       api_base: http://llama-swap:8080/v1
       api_key: none
 

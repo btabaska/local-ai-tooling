@@ -48,8 +48,13 @@ PROVIDERS = [
     {
         "display_name": "llama-swap (rig lanes)",
         "base_url": "http://llama-swap:8080/v1",
-        # resolved against /api/providers/registry at runtime; first match wins
-        "type_candidates": ["llama.cpp", "llamacpp", "llama_cpp"],
+        # "llama_cpp" is a HIDDEN registry type (absent from GET /api/providers/
+        # registry — surfaced via the frontend's CUSTOM_PROVIDER_PRESETS) with
+        # tool-calling+vision enabled and NO model-id allowlist. Do NOT use
+        # "openai": its registry entry allowlists ^gpt-5.x/o3 ids, which
+        # filters llama-swap's lanes to an empty picker. Candidates are probed
+        # via POST /api/providers/models; first one returning models wins.
+        "type_candidates": ["llama_cpp", "vllm", "openai"],
     },
 ]
 
@@ -119,31 +124,39 @@ def main():
     api.token = tok["access_token"]
 
     # 1. providers -----------------------------------------------------------
-    code, registry = api.call("GET", "/api/providers/registry")
-    reg_types = {e["provider_type"] for e in (registry if isinstance(registry, list) else registry.get("providers", []))}
     code, existing = api.call("GET", "/api/providers/")
     existing = existing if isinstance(existing, list) else existing.get("providers", [])
-    have_urls = {p.get("base_url") for p in existing}
     for want in PROVIDERS:
-        ptype = next((t for t in want["type_candidates"] if t in reg_types), None)
+        ptype, ids = None, []
+        for cand in want["type_candidates"]:
+            code, models = api.call("POST", "/api/providers/models", {
+                "provider_type": cand, "base_url": want["base_url"],
+            })
+            got = [m["id"] for m in models] if code == 200 and isinstance(models, list) else []
+            if got:
+                ptype, ids = cand, got
+                break
+            if code == 200 and ptype is None:
+                ptype = cand  # known type, empty list — keep as fallback
         if not ptype:
-            print(f"SKIP provider {want['display_name']}: no registry type in "
-                  f"{want['type_candidates']} (registry has: {sorted(reg_types)})")
+            print(f"SKIP provider {want['display_name']}: no candidate type accepted")
             continue
-        if want["base_url"] in have_urls:
-            print(f"ok provider (exists): {want['display_name']}")
+        current = next((p for p in existing if p.get("base_url") == want["base_url"]), None)
+        if current and current.get("provider_type") != ptype:
+            code, _ = api.call("DELETE", f"/api/providers/{current['id']}")
+            print(f"ok provider re-type: deleted stale {current['provider_type']} entry ({code})")
+            current = None
+        if current:
+            print(f"ok provider (exists): {want['display_name']} [{ptype}]")
         else:
             code, r = api.call("POST", "/api/providers/", {
                 "provider_type": ptype,
                 "display_name": want["display_name"],
                 "base_url": want["base_url"],
             })
-            print(f"{'ok' if code == 200 else 'FAIL'} provider create "
-                  f"{want['display_name']}: {code} {json.dumps(r)[:120] if code != 200 else ''}")
-        code, models = api.call("POST", "/api/providers/models", {
-            "provider_type": ptype, "base_url": want["base_url"],
-        })
-        ids = [m["id"] for m in (models if isinstance(models, list) else models.get("models", []))]
+            print(f"{'ok' if code in (200, 201) else 'FAIL'} provider create "
+                  f"{want['display_name']} [{ptype}]: {code}"
+                  f"{' ' + json.dumps(r)[:120] if code not in (200, 201) else ''}")
         print(f"   models via {want['display_name']}: {len(ids)} "
               f"(qwen3.8-27b {'PRESENT' if 'qwen3.8-27b' in ids else 'MISSING'})")
 
@@ -155,8 +168,8 @@ def main():
             print(f"ok scan-folder (exists): {path}")
             continue
         code, r = api.call("POST", "/api/models/scan-folders", {"path": path})
-        print(f"{'ok' if code == 200 else 'FAIL'} scan-folder {path}: {code}"
-              f"{' ' + json.dumps(r)[:120] if code != 200 else ''}")
+        print(f"{'ok' if code in (200, 201) else 'FAIL'} scan-folder {path}: {code}"
+              f"{' ' + json.dumps(r)[:120] if code not in (200, 201) else ''}")
 
     # 3. MCP servers ---------------------------------------------------------
     memos_token = os.environ.get("MEMOS_MCP_TOKEN", "")
@@ -184,8 +197,8 @@ def main():
             "headers": headers, "is_enabled": True, "use_oauth": False,
         })
         tools = probe.get("tool_count", "?")
-        print(f"{'ok' if code == 200 else 'FAIL'} mcp {want['display_name']}: "
-              f"{code} tools={tools}{' ' + json.dumps(r)[:120] if code != 200 else ''}")
+        print(f"{'ok' if code in (200, 201) else 'FAIL'} mcp {want['display_name']}: "
+              f"{code} tools={tools}{' ' + json.dumps(r)[:120] if code not in (200, 201) else ''}")
 
     # 4. API key -------------------------------------------------------------
     code, keys = api.call("GET", "/api/auth/api-keys")
@@ -196,7 +209,7 @@ def main():
         print("SKIP api-key mint: no --key-out given")
     else:
         code, r = api.call("POST", "/api/auth/api-keys", {"name": "verification"})
-        if code == 200:
+        if code in (200, 201):
             fd = os.open(args.key_out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w") as fh:
                 fh.write(r["key"])

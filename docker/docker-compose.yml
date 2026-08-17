@@ -559,6 +559,10 @@ services:
       # keep HF downloads (mmproj, audio models, ...) on a persistent volume
       HF_HOME: /workspace/work/hf-cache
     volumes:
+      # Studio data dir (runtime-created: studio.db config/connections/MCP,
+      # auth/auth.db API keys+login, runs/exports) — MUST persist or every
+      # recreate wipes the in-app wiring.
+      - unsloth_studio_data:/workspace/studio
       - unsloth_work:/workspace/work
       # existing model libraries, read-only — Studio folder-detect points here;
       # never let Studio re-download what llama-swap/ComfyUI already have.
@@ -575,3 +579,4 @@ volumes:
   ldr_data:
   ldr_scripts:
   unsloth_work:
+  unsloth_studio_data:

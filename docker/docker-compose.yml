@@ -522,6 +522,49 @@ services:
       retries: 3
       start_period: 30s
 
+  # ---- unsloth-studio: Unsloth Studio web UI (run/train GGUF + diffusion) -------
+  # Requested 2026-08-17 ("Unsloth Desktop" = the native Tauri app; Studio is the
+  # same product's browser/web UI, which is what a docker deploy serves). Web UI
+  # on host :8210 (:8000 is taken by mcpo); Jupyter :8888 and SSH :22 exist in
+  # the image but are deliberately NOT published (smaller surface — LAN posture
+  # like lumiverse/LDR, never internet-exposed). GPU via CDI like llama-swap.
+  #
+  # TEXT MODELS ARE NOT LOADED BY STUDIO: Settings -> Connections -> llama.cpp
+  # provider pointed at http://llama-swap:8080/v1, so all lanes (chat, coder,
+  # qwen3.8-27b, ...) serve through llama-swap with their tuned server-side
+  # params (ctx budgets are VRAM edge-fits — see llama-swap-config.yaml) and no
+  # duplicate VRAM residency. Local GGUF/diffusion files are visible via the RO
+  # mounts below (Studio "detect from existing folder"); anything Studio loads
+  # ITSELF (diffusion runs) contends with llama-swap/ComfyUI for the 24GB card —
+  # same take-turns reality as ComfyUI, but the gpu-arbiter does NOT govern
+  # Studio. Unload llama-swap first (POST :9292/api/models/unload) for big
+  # diffusion runs; daytime only [[rig-gpu-vram-contention]].
+  #
+  # Studio auth = UNSLOTH_STUDIO_PASSWORD (vault ai_stack.unsloth_studio_password);
+  # JUPYTER/USER passwords set to the same value (their ports are unpublished).
+  # Connections/MCP/API-keys are configured IN-APP (DB-only, like OWUI) — the
+  # runbook (Home wiki runbooks/unsloth-studio.md) records the exact settings.
+  unsloth-studio:
+    image: unsloth/unsloth:latest@sha256:f21629b9ae4ed11231768edfaed0f40d41d85d6ea9a71e8096a3d96ea0311772
+    container_name: unsloth-studio
+    restart: unless-stopped
+    ports:
+      - "8210:8000"
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      UNSLOTH_STUDIO_PASSWORD: ${UNSLOTH_STUDIO_PASSWORD}
+      JUPYTER_PASSWORD: ${UNSLOTH_STUDIO_PASSWORD}
+      USER_PASSWORD: ${UNSLOTH_STUDIO_PASSWORD}
+      # keep HF downloads (mmproj, audio models, ...) on a persistent volume
+      HF_HOME: /workspace/work/hf-cache
+    volumes:
+      - unsloth_work:/workspace/work
+      # existing model libraries, read-only — Studio folder-detect points here;
+      # never let Studio re-download what llama-swap/ComfyUI already have.
+      - /opt/llm/models:/models/gguf:ro
+      - /opt/comfyui/models:/models/comfyui:ro
+
 
 volumes:
   bioclip_data:
@@ -531,3 +574,4 @@ volumes:
   marinara-data:
   ldr_data:
   ldr_scripts:
+  unsloth_work:

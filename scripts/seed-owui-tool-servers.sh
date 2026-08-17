@@ -11,7 +11,6 @@
 #                   the rig host, ops/fleet-mcp.service). Function filter keeps
 #                   9 of 10 tools — run_verification_checks is excluded
 #                   (minutes-long full check sweep; chat-hostile).
-#     context7   -> https://mcp.context7.com/mcp (hosted, keyless, low rate).
 #     comfyui    -> http://comfyui-mcp:9000/mcp (lai-11; docker/comfyui-mcp).
 #                   Filter keeps 3 of 17: the two curated workflow tools
 #                   (zimage_turbo, noobai_anime) + view_image. Job/asset/publish
@@ -20,16 +19,16 @@
 #                   headless chromium, --isolated). Filter keeps 8 of 24 chat-shaped
 #                   browse tools; evaluate/run_code_unsafe/network stay opencode-only.
 # - mcpo (OpenAPI bridge, stdio-only servers stay here):
-#     time / fetch / serena / sequential-thinking.
-#   serena is FILTERED to 9 of 21 (lai-11; lai-16 dropped tool_onboarding): read-only code intel + memory reads.
+#     time / fetch / sequential-thinking.
 #   NOTE mcpo tool names in OWUI are the OpenAPI operationIds (tool_<name>_post),
 #   so the openapi filter entries below use that full form; native-mcp filters
 #   use bare tool names.
-#   The 12 cut tools are all mutating (replace_*/insert_*/rename_*/delete_*/
-#   *_memory writes) — OWUI chat is a read-only consumer; opencode keeps full
-#   serena via its own MCP client.
-#   mcpo ALSO still serves /fleet and /context7 passthroughs for non-OWUI
-#   consumers (mcpo-config.json unchanged) — OWUI just no longer uses them.
+#   CODING-TOOL TRIM (journal-09 follow-up, 2026-08-17): serena (was 9 read-only
+#   code-intel tools via mcpo) and context7 (was the hosted docs MCP) were
+#   REMOVED from OWUI — coding tool-calls live in opencode, which keeps full
+#   serena (own stdio client) and context7 (clients/opencode.json). mcpo still
+#   RUNS /serena (+ /fleet, /context7 passthroughs) for non-OWUI consumers
+#   (mcpo-config.json unchanged) — OWUI just no longer lists them.
 #   openzim (lai-13): openzim-mcp v2.5.5 advanced mode (8 tools) over the NAS
 #   ZIM library (rig /mnt/nas-zim RO CIFS -> /zim in the mcpo container).
 #   Filtered to 3 of 8 chat-shaped tools: zim_query (the NL intelligent tool,
@@ -42,24 +41,25 @@
 #   Bearer auth with a DEDICATED PAT (vault journaling.memos.mcp_token, NOT
 #   n8n's api_token) injected at run time via $MEMOS_MCP_TOKEN — the
 #   __MEMOS_MCP_TOKEN__ placeholder below keeps the secret out of git.
-#   Filtered to 2 of 19: search_memos (journal recall) + create_memo (capture).
-#   The other 17 (update/delete/comments/attachments/reactions/relations/tags)
-#   stay out of chat — destructive ops don't belong in a small-model tool belt,
-#   and the budget is at cap. opencode gets the same 2-tool posture via
+#   Filtered to 4 of 19: search_memos + get_memo + list_tags (journal recall)
+#   + create_memo (capture). The other 15 (update/delete/comments/attachments/
+#   reactions/relations) stay out of chat — destructive ops don't belong in a
+#   small-model tool belt. opencode gets the FULL 19-tool set via
 #   clients/opencode.json (memos remote MCP, {env:MEMOS_MCP_TOKEN}).
 #
-# Tool budget: fleet 9 + context7 2 + serena 9 + time 2 + fetch 1 +
-# sequential-thinking 1 + comfyui 3 + playwright 8 + openzim 3 + memos 2 = 40
-# OWUI-visible tools (AT the ~40 cap that degrades small-model routing — the
-# next addition must trade something out; the
+# Tool budget: fleet 9 + time 2 + fetch 1 +
+# sequential-thinking 1 + comfyui 3 + playwright 8 + openzim 3 + memos 4 = 31
+# OWUI-visible tools (headroom 9 under the ~40 cap that degrades small-model
+# routing; serena 9 + context7 2 trimmed 2026-08-17 as opencode-only; the
 # lai-16 notes-MCP read pair retired 2026-08-14 with the read-27 trial). Guarded by the mini checks
 # `owui-mcp-tools` (budget) + `image-browser-mcp` (lai-11 servers + filters).
 #
 # NOTE: chat models reference these by stable ids (server:time, server:fetch,
-# server:serena, server:sequential-thinking, server:mcp:fleet,
-# server:mcp:context7, server:mcp:comfyui, server:mcp:playwright,
+# server:sequential-thinking, server:mcp:fleet,
+# server:mcp:comfyui, server:mcp:playwright,
 # server:openzim, server:mcp:memos) in
-# model.meta.toolIds — keep info.id values stable.
+# model.meta.toolIds — keep info.id values stable. (rig-thinker's pinned
+# server:serena + server:mcp:context7 were removed with the 2026-08-17 trim.)
 #
 # NOTE filter semantics: OWUI matches with is_string_allowed = name ENDSWITH
 # entry (allow-list) — every entry below was checked against sibling tool names
@@ -84,9 +84,6 @@ payload=$(cat <<'JSON'
  {"url": "http://mcpo:8000/fetch", "path": "openapi.json", "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "", "access_grants": []},
   "info": {"id": "fetch", "name": "fetch", "description": "mcpo stdio bridge: mcp-server-fetch"}, "spec_type": "url", "spec": ""},
- {"url": "http://mcpo:8000/serena", "path": "openapi.json", "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
-  "config": {"enable": true, "function_name_filter_list": "tool_get_symbols_overview_post,tool_find_symbol_post,tool_find_referencing_symbols_post,tool_find_implementations_post,tool_find_declaration_post,tool_get_diagnostics_for_file_post,tool_read_memory_post,tool_list_memories_post,tool_initial_instructions_post", "access_grants": []},
-  "info": {"id": "serena", "name": "serena", "description": "mcpo stdio bridge: semantic code intel (project /repos/app). Filtered to 9 read-only tools (lai-11; tool_onboarding, which writes memories, dropped in lai-16); editing tools are opencode-only."}, "spec_type": "url", "spec": ""},
  {"url": "http://mcpo:8000/openzim", "path": "openapi.json", "type": "openapi", "auth_type": "bearer", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "tool_zim_query_post,tool_zim_search_post,tool_zim_get_post", "access_grants": []},
   "info": {"id": "openzim", "name": "openzim", "description": "mcpo stdio bridge: openzim-mcp v2.5.5 over the NAS ZIM library (RO, /mnt/nas-zim). Filtered to 3 of 8 (lai-13): zim_query (NL) + zim_search + zim_get; browse/links/metadata/section/health are opencode-only."}, "spec_type": "url", "spec": ""},
@@ -96,9 +93,6 @@ payload=$(cat <<'JSON'
  {"url": "http://host.docker.internal:8765/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "list_hosts,service_status,journal_tail,list_containers,container_logs,system_overview,check_url,gpu_status,healthchecks_summary", "access_grants": []},
   "info": {"id": "fleet", "name": "Fleet (native MCP)", "description": "Read-only homelab fleet inspection (ai-01, fleet-mcp.service on the rig) over native streamable-HTTP. run_verification_checks is filtered out (minutes-long, chat-hostile)."}},
- {"url": "https://mcp.context7.com/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
-  "config": {"enable": true, "function_name_filter_list": "", "access_grants": []},
-  "info": {"id": "context7", "name": "Context7 (native MCP)", "description": "Up-to-date library docs — hosted streamable-HTTP endpoint, keyless (low rate)."}},
  {"url": "http://comfyui-mcp:9000/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "zimage_turbo,noobai_anime,view_image", "access_grants": []},
   "info": {"id": "comfyui", "name": "ComfyUI (native MCP)", "description": "Image generation tools (lai-11, comfyui-mcp v1.1.1 -> gpu-arbiter): zimage_turbo (realistic, 8-step) + noobai_anime (SDXL anime) + view_image. Full 17-tool set is opencode-only."}},
@@ -106,8 +100,8 @@ payload=$(cat <<'JSON'
   "config": {"enable": true, "function_name_filter_list": "browser_navigate,browser_navigate_back,browser_snapshot,browser_take_screenshot,browser_click,browser_type,browser_fill_form,browser_wait_for", "access_grants": []},
   "info": {"id": "playwright", "name": "Playwright browser (native MCP)", "description": "Headless-chromium browsing (lai-11, microsoft/playwright-mcp v0.0.79, --isolated): navigate/snapshot/screenshot/interact. evaluate + network tools are opencode-only."}},
  {"url": "http://192.168.10.2:5230/mcp", "path": "", "type": "mcp", "auth_type": "bearer", "headers": null, "key": "__MEMOS_MCP_TOKEN__",
-  "config": {"enable": true, "function_name_filter_list": "search_memos,create_memo", "access_grants": []},
-  "info": {"id": "memos", "name": "Memos journal (native MCP)", "description": "The journal on the mini — Memos' BUILT-IN MCP server (journal-09). Filtered to 2 of 19: search_memos (recall past entries) + create_memo (capture a note). Bearer PAT = vault journaling.memos.mcp_token; update/delete/comment tools stay out of chat by policy."}}
+  "config": {"enable": true, "function_name_filter_list": "search_memos,create_memo,get_memo,list_tags", "access_grants": []},
+  "info": {"id": "memos", "name": "Memos journal (native MCP)", "description": "The journal on the mini — Memos' BUILT-IN MCP server (journal-09). Filtered to 4 of 19: search_memos + get_memo + list_tags (recall) + create_memo (capture). Bearer PAT = vault journaling.memos.mcp_token; update/delete/comment tools stay out of chat by policy."}}
 ]}
 JSON
 )

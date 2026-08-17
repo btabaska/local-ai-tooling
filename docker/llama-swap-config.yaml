@@ -14,7 +14,10 @@
 # ctx-size per model = MEASURED max that loads fully on GPU (bake-off
 # 2026-07-16, q8_0 KV + flash-attn, embedder CPU-pinned, desktop ~1 GiB):
 #   qwen3.6-27b MTP 114688 (23.4G; 131072 OOM)   35b-a3b 262144 = native max (23.3G)
-#   gemma4-qat 65536 (22.1G, re-measured 2026-08-16: 73728 stopped fitting once
+#   gemma4-qat 49152+mmproj-F16 (vision, 2026-08-16 — user wants image input on
+#     chat. 65536 text-only was 22.1G; 57344+mmproj OOMed at the 1.14G clip
+#     buffer, 49152 fits — the vision tower costs two 8k ctx steps)
+#     (prior: 65536 text-only 22.1G, re-measured 2026-08-16: 73728 stopped fitting once
 #     desktop residents grew — ComfyUI CUDA ctx + Apollo NVENC + Steam ~0.8G;
 #     65536 leaves ~0.8G headroom under that load; 81920 OOM)
 #   deckard 49152 (23.8G; 65536 OOM)
@@ -177,7 +180,8 @@ models:
     cmd: |
       ${srv}
       --model /models/gemma4-31b-qat.gguf
-      --ctx-size 65536
+      --mmproj /models/mmproj-gemma-4-31b-qat-f16.gguf
+      --ctx-size 49152
       --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 

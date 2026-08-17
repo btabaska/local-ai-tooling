@@ -169,6 +169,21 @@ served:
       quantized_by: Unsloth
       confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; unsloth mmproj-F16
 
+  # ---- Vision projector for the chat lane (gemma4-31b-qat, wired 2026-08-16) ----
+  - file: mmproj-gemma-4-31b-qat-f16.gguf
+    llama_swap_model: null        # not a standalone model; --mmproj for gemma4-31b-qat
+    litellm_alias: []
+    role: vision/mmproj tower (Gemma-4-31B QAT) for the chat lane; ctx trimmed 65536->57344 to fit it
+    quant: F16
+    size_bytes: 1198957024        # ~1.12 GiB
+    sha256: 4775e1bf6ef6f8df94caed2d672c74432f0722565e5225a170c72949ebe4cf23
+    source:
+      repo: unsloth/gemma-4-31B-it-qat-GGUF
+      file: mmproj-F16.gguf
+      base_model: google/gemma-4-31b-it-qat
+      quantized_by: Unsloth
+      confidence: verified   # sha256 == HF LFS oid, fetched 2026-08-16
+
   # ---- Small / utility ----
   - file: qwen2.5-coder-7b.gguf
     llama_swap_model: qwen2.5-coder-7b

@@ -37,29 +37,44 @@
 #   metadata/get_section/health stay opencode-only (opencode spawns its own
 #   stdio openzim-mcp on the rig — full advanced set).
 #
+#   memos (journal-09, 2026-08-17): the Memos BUILT-IN MCP server on the mini
+#   (http://192.168.10.2:5230/mcp, in Memos since 0.27 — no extra container).
+#   Bearer auth with a DEDICATED PAT (vault journaling.memos.mcp_token, NOT
+#   n8n's api_token) injected at run time via $MEMOS_MCP_TOKEN — the
+#   __MEMOS_MCP_TOKEN__ placeholder below keeps the secret out of git.
+#   Filtered to 2 of 19: search_memos (journal recall) + create_memo (capture).
+#   The other 17 (update/delete/comments/attachments/reactions/relations/tags)
+#   stay out of chat — destructive ops don't belong in a small-model tool belt,
+#   and the budget is at cap. opencode gets the same 2-tool posture via
+#   clients/opencode.json (memos remote MCP, {env:MEMOS_MCP_TOKEN}).
+#
 # Tool budget: fleet 9 + context7 2 + serena 9 + time 2 + fetch 1 +
-# sequential-thinking 1 + comfyui 3 + playwright 8 + openzim 3 = 38
-# OWUI-visible tools (under the ~40 cap that degrades small-model routing; the
+# sequential-thinking 1 + comfyui 3 + playwright 8 + openzim 3 + memos 2 = 40
+# OWUI-visible tools (AT the ~40 cap that degrades small-model routing — the
+# next addition must trade something out; the
 # lai-16 notes-MCP read pair retired 2026-08-14 with the read-27 trial). Guarded by the mini checks
 # `owui-mcp-tools` (budget) + `image-browser-mcp` (lai-11 servers + filters).
 #
 # NOTE: chat models reference these by stable ids (server:time, server:fetch,
 # server:serena, server:sequential-thinking, server:mcp:fleet,
 # server:mcp:context7, server:mcp:comfyui, server:mcp:playwright,
-# server:openzim) in
+# server:openzim, server:mcp:memos) in
 # model.meta.toolIds — keep info.id values stable.
 #
 # NOTE filter semantics: OWUI matches with is_string_allowed = name ENDSWITH
 # entry (allow-list) — every entry below was checked against sibling tool names
 # for suffix collisions before landing here; re-check when adding entries.
 #
-# Run ON rig:  OWUI_API_KEY=<admin api key> bash scripts/seed-owui-tool-servers.sh
-# Key source:  foss-setup vault ai_stack.openwebui_rag_sync_api_key (admin).
+# Run ON rig:  OWUI_API_KEY=<admin api key> MEMOS_MCP_TOKEN=<memos PAT> \
+#              bash scripts/seed-owui-tool-servers.sh
+# Key source:  foss-setup vault ai_stack.openwebui_rag_sync_api_key (admin) +
+#              journaling.memos.mcp_token (memos MCP PAT).
 # Idempotent:  full-list replace of tool_server.connections (this IS the list).
 set -euo pipefail
 
 BASE="${OWUI_URL:-http://localhost:3000}"
 [ -n "${OWUI_API_KEY:-}" ] || { echo "OWUI_API_KEY not set (vault ai_stack.openwebui_rag_sync_api_key)" >&2; exit 1; }
+[ -n "${MEMOS_MCP_TOKEN:-}" ] || { echo "MEMOS_MCP_TOKEN not set (vault journaling.memos.mcp_token)" >&2; exit 1; }
 
 payload=$(cat <<'JSON'
 {"TOOL_SERVER_CONNECTIONS": [
@@ -89,10 +104,14 @@ payload=$(cat <<'JSON'
   "info": {"id": "comfyui", "name": "ComfyUI (native MCP)", "description": "Image generation tools (lai-11, comfyui-mcp v1.1.1 -> gpu-arbiter): zimage_turbo (realistic, 8-step) + noobai_anime (SDXL anime) + view_image. Full 17-tool set is opencode-only."}},
  {"url": "http://playwright-mcp:8931/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "browser_navigate,browser_navigate_back,browser_snapshot,browser_take_screenshot,browser_click,browser_type,browser_fill_form,browser_wait_for", "access_grants": []},
-  "info": {"id": "playwright", "name": "Playwright browser (native MCP)", "description": "Headless-chromium browsing (lai-11, microsoft/playwright-mcp v0.0.79, --isolated): navigate/snapshot/screenshot/interact. evaluate + network tools are opencode-only."}}
+  "info": {"id": "playwright", "name": "Playwright browser (native MCP)", "description": "Headless-chromium browsing (lai-11, microsoft/playwright-mcp v0.0.79, --isolated): navigate/snapshot/screenshot/interact. evaluate + network tools are opencode-only."}},
+ {"url": "http://192.168.10.2:5230/mcp", "path": "", "type": "mcp", "auth_type": "bearer", "headers": null, "key": "__MEMOS_MCP_TOKEN__",
+  "config": {"enable": true, "function_name_filter_list": "search_memos,create_memo", "access_grants": []},
+  "info": {"id": "memos", "name": "Memos journal (native MCP)", "description": "The journal on the mini — Memos' BUILT-IN MCP server (journal-09). Filtered to 2 of 19: search_memos (recall past entries) + create_memo (capture a note). Bearer PAT = vault journaling.memos.mcp_token; update/delete/comment tools stay out of chat by policy."}}
 ]}
 JSON
 )
+payload=${payload//__MEMOS_MCP_TOKEN__/$MEMOS_MCP_TOKEN}
 
 curl -sf -m 120 -X POST -H "Authorization: Bearer $OWUI_API_KEY" -H 'Content-Type: application/json' \
   --data-binary "$payload" "$BASE/api/v1/configs/tool_servers" \

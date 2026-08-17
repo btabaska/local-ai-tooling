@@ -154,7 +154,8 @@
         "playwright*": true,
         "comfyui*": true,
         "openzim*": true,
-        "openstreetmap*": true
+        "openstreetmap*": true,
+        "memos*": true
       }
     },
     "plan": {
@@ -173,7 +174,8 @@
         "playwright*": true,
         "comfyui*": true,
         "openzim*": true,
-        "openstreetmap*": true
+        "openstreetmap*": true,
+        "memos*": true
       }
     }
   },
@@ -252,6 +254,23 @@
         "OSM_USER_AGENT": "going-analogue-homelab/1.0 (lai-17)"
       },
       "timeout": 30000
+    },
+    "memos": {
+      // journal-09: the Memos journal's BUILT-IN MCP server on the mini
+      // (in Memos since 0.27; 19 tools — search/create/update/delete memos,
+      // comments, attachments, reactions, tags). Bearer PAT = vault
+      // journaling.memos.mcp_token, exported as MEMOS_MCP_TOKEN from the
+      // shell env (rig ~/.bashrc, Mac ~/.zshenv — same pattern as
+      // LITELLM_API_KEY). opencode gets the FULL tool set (unlike OWUI chat,
+      // which filters to search_memos+create_memo); destructive ops are
+      // gated by the usual edit/bash ask-permissions posture.
+      "type": "remote",
+      "enabled": true,
+      "url": "http://macmini.tailb31641.ts.net:5230/mcp",
+      "headers": {
+        "Authorization": "Bearer {env:MEMOS_MCP_TOKEN}"
+      },
+      "timeout": 15000
     }
   },
   "permission": {
@@ -265,7 +284,8 @@
     "playwright*": false,
     "comfyui*": false,
     "openzim*": false,
-    "openstreetmap*": false
+    "openstreetmap*": false,
+    "memos*": false
   },
   "subagent_depth": 2,
   "compaction": {

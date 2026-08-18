@@ -45,7 +45,9 @@ model_list:
       api_base: http://llama-swap:8080/v1
       api_key: none
 
-  # Qwen3.8-27B bake-off trial (2026-08-15) — same gateway path as the others
+  # Qwen3.8-27B trial lane — tuned 2026-08-17 (ctx 114688 + MTP ~55 t/s; full
+  # bake-off data in llama-swap-config.yaml). Candidate coder-strong successor;
+  # promote by repointing coder-strong here after the eval bake-off settles.
   - model_name: q38
     litellm_params:
       model: openai/qwen3.8-27b

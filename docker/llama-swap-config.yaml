@@ -14,6 +14,9 @@
 # ctx-size per model = MEASURED max that loads fully on GPU (bake-off
 # 2026-07-16, q8_0 KV + flash-attn, embedder CPU-pinned, desktop ~1 GiB):
 #   qwen3.6-27b MTP 114688 (23.4G; 131072 OOM)   35b-a3b 262144 = native max (23.3G)
+#   qwen3.8-27b MTP 114688 (23.2G; MTP@131072 OOM — draft ctx arena) — bake-off
+#     2026-08-17: no-MTP ceiling 131072 (23.0G; 147456 OOM); q4_0-KV alt lane
+#     loads native 262144 (23.5G, 531M free) but MTP does not fit there.
 #   gemma4-qat SPLIT 2026-08-17: text lane 65536 (22.1G; re-measured 2026-08-16:
 #     73728 stopped fitting once desktop residents grew — ComfyUI CUDA ctx +
 #     Apollo NVENC + Steam ~0.8G; 65536 leaves ~0.8G headroom; 81920 OOM);
@@ -59,19 +62,51 @@ models:
       --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 
-  # Qwen3.8-27B trial (2026-08-15, eval bake-off): unsloth UD-Q4_K_XL 17.9G,
-  # post-Aug-14 template-fixed upload. HF card thinking samplers: temp 1.0
-  # top_p 0.95 top_k 20 (NOTE: moved from 0.6 in the 3.6 gen). No MTP flags
-  # yet (plain GGUF; -MTP companion untested on b10438). ctx conservative.
+  # Qwen3.8-27B — TUNED 2026-08-17 (r/LocalLLaMA research + 3-round ctx/MTP
+  # bake-off; supersedes the 2026-08-15 conservative trial: ctx 98304, no MTP).
+  # unsloth UD-Q4_K_XL 17.9G. Same qwen35 hybrid arch as 3.6-27B (16/64
+  # full-attn layers → cheap KV), and this GGUF DOES carry the MTP head
+  # (blk.64.nextn.* observed at load) — the earlier "plain GGUF" note was wrong.
+  #
+  # TEMPLATE: post-Aug-14 unsloth upload VERIFIED opencode-safe 2026-08-17
+  # (2 system msgs + tools → HTTP 200, finish_reason=tool_calls, clean
+  # reasoning_content). The OFFICIAL Qwen template has 9 raise_exception
+  # asserts that reject opencode's multi-system-message requests (llama.cpp
+  # #27107, opencode #42909) — do NOT swap in another GGUF/template without
+  # re-running that test.
+  #
+  # MEASURED on b10438 (q8_0 KV + FA, desktop ~1.4G resident, 2026-08-17):
+  #   ctx ladder no-MTP: 98304=21.8G  114688=22.4G  131072=23.0G  147456=OOM
+  #   MTP@131072 OOMs (draft ctx needs its own arena, cf. llama.cpp #27282);
+  #   at 114688: n-max 2 → 55.0 t/s, 86% accept, 23.2G, 837M free  ← PICKED
+  #              n-max 4 → 60.1 t/s, 75% accept, 23.5G, 533M free (too edge —
+  #              desktop-resident growth killed gemma at that margin)
+  #   no-MTP tg 33.8 t/s; pp 1.1–1.2k t/s in all configs. Acceptance was
+  #   measured on easy prose — expect ~50–70% on real agentic content.
+  #   ALT LANE (documented, not served): q4_0 KV (K==V) loads NATIVE 262144 at
+  #   23.5G/531M free, pp 1191 t/s — no Ampere prefill collapse on this build
+  #   (contradicts #27109 fears; their collapse needs mixed/odd KV types) —
+  #   but MTP does not fit there and tg stays 33.4. Swap in only when a
+  #   huge-ctx one-off matters more than speed/headroom.
+  # HF card thinking samplers: temp 1.0 top_p 0.95 top_k 20 min_p 0 (temp moved
+  # UP from 0.6 in the 3.6 gen; community coding rigs run 0.6 — first knob to
+  # try if tool-call flakiness appears). Non-thinking mode would be 0.7/0.8 +
+  # presence 1.5 — sampler and mode move TOGETHER (see swarm entry lesson).
+  # reasoning_effort medium: xhigh DEFAULT burned 600s/answer (6/8 eval
+  # timeouts 2026-08-16). Per-REQUEST reasoning_effort is broken until b10448
+  # (#27023) so it must stay a SERVER flag on this image. --spec-default is a
+  # silent MTP no-op on b10438 (verified: nextn tensors load "unused") — keep
+  # the explicit --spec-type. --parallel 1 REQUIRED with MTP (3.6 house rule).
+  # --ctx-checkpoints 4 = DeltaNet recurrent-state checkpoints so agent-loop
+  # prefix reuse doesn't force full reprocessing (hybrid-arch specific).
   "qwen3.8-27b":
-    name: "Qwen3.8 27B (dense VLM, trial — text-only serving)"
-    # reasoning_effort medium: the xhigh DEFAULT burned 600s/answer on evidence-
-    # heavy ops questions (6/8 eval timeouts, 2026-08-16) — xhigh is unusable
-    # interactively on this card; medium is the deployable posture.
+    name: "Qwen3.8 27B MTP (dense VLM text-only, ~55 t/s)"
     cmd: |
       ${srv}
       --model /models/qwen3.8-27b.gguf
-      --ctx-size 98304
+      --ctx-size 114688
+      --spec-type draft-mtp --spec-draft-n-max 2
+      --ctx-checkpoints 4
       --parallel 1
       --reasoning-effort medium
       --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0

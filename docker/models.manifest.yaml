@@ -74,6 +74,20 @@ served:
       quantized_by: Unsloth
       confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; filename preserved
 
+  - file: qwen3.8-27b.gguf
+    llama_swap_model: qwen3.8-27b
+    litellm_alias: [q38]
+    role: coding/agentic trial (dense VLM text-only, MTP spec-decode ~55 t/s)
+    quant: UD-Q4_K_XL             # unsloth dynamic; carries MTP head (blk.64.nextn.* observed at load)
+    size_bytes: 17923394624       # ~16.69 GiB
+    sha256: bee238bbeb3dc0a34bde4d0dedbaee1f98c009e8bb4226f03070054c12fb1372
+    source:
+      repo: unsloth/Qwen3.8-27B-GGUF
+      file: Qwen3.8-27B-UD-Q4_K_XL.gguf   # renamed on disk at download (2026-08-15)
+      base_model: Qwen/Qwen3.8-27B
+      quantized_by: Unsloth
+      confidence: inferred   # renamed on disk; size matches the repo's UD-Q4_K_XL (17.92 GB); match sha256 on re-download
+
   # (qwen3-coder-30b + devstral-24b retired 2026-07-29 — moved to `archived:` below.)
 
   # ---- Chat ----

@@ -57,6 +57,18 @@
             "field": "reasoning_content"
           }
         },
+        "q38": {
+          "name": "q38 - Qwen3.8 27B MTP (trial; ~55 t/s, 112k ctx)",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 114688,
+            "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
         "fast": {
           "name": "fast - Qwen2.5-Coder 7B (quick/cheap)",
           "tool_call": true,
@@ -102,6 +114,18 @@
         },
         "qwen3.6-27b": {
           "name": "DIRECT coder-strong - Qwen3.6 27B MTP",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 114688,
+            "output": 8192
+          },
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
+        "qwen3.8-27b": {
+          "name": "DIRECT q38 - Qwen3.8 27B MTP (trial)",
           "tool_call": true,
           "temperature": true,
           "limit": {

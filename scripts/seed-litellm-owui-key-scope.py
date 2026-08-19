@@ -28,6 +28,8 @@ ALLOW = [
     "cydonia", "dolphin-venice", "goetia",
     "fast", "utility", "embed", "rerank",
     "coder-swarm", "q38",
+    # 2026-08-19 chat bake-off trials (drop with their aliases when it settles)
+    "chat-q38-trial", "chat-gemma-26b-trial",
 ]
 
 sec = json.loads(sys.stdin.readline())

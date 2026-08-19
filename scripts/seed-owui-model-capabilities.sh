@@ -18,7 +18,10 @@
 #             2026-08-17 split — mmproj removed, ctx back to 65536),
 #             coder / code / coder-swarm / coder-strong (qwen3.6*), q38,
 #             chat-creative (deckard-heretic, no mmproj), fast, utility,
-#             rig-coder (base=coder; OWUI-deactivated 2026-08-17)
+#             rig-coder (base=coder; OWUI-deactivated 2026-08-17),
+#             chat-q38-trial / chat-gemma-26b-trial (2026-08-19 bake-off:
+#             text-only lanes — q38's VLM base and the 26B's vision tower are
+#             served WITHOUT mmproj; attach images via chat-vision only)
 #
 # Run ON rig:  OWUI_API_KEY=<admin api key> bash scripts/seed-owui-model-capabilities.sh
 # Key source:  foss-setup vault ai_stack.openwebui_rag_sync_api_key (admin).
@@ -40,6 +43,7 @@ VISION = {
     "coder": False, "code": False, "coder-swarm": False, "coder-strong": False,
     "q38": False, "chat-creative": False, "fast": False, "utility": False,
     "rig-coder": False,
+    "chat-q38-trial": False, "chat-gemma-26b-trial": False,
 }
 
 def api(method, path, body=None):

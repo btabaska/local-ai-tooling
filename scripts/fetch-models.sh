@@ -99,6 +99,17 @@ fetch unsloth/gemma-4-31b-it-qat-GGUF \
       gemma4-31b-qat.gguf \
       9188a71055550f1e60b875d02b7abb63625ac11b4a6f148d6b22b3b28ba3d335
 
+# gemma4-26b-a4b: 2026-08-19 chat bake-off trial (Gemma 4 MoE, ~4B active).
+# NON-QAT on purpose — the 26B QAT has an open quality dispute (qat repo
+# discussion #3); the QAT file sits in archive/ as an A/B challenger (see
+# models.manifest.yaml `archived:`). sha256 == the repo's HF LFS oid.
+# Upstream also ships mmproj-F16 (vision tower) and an MTP draft-head GGUF —
+# both deliberately NOT fetched (text-only lane; images go via chat-vision).
+fetch unsloth/gemma-4-26B-A4B-it-GGUF \
+      gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf \
+      gemma4-26b-a4b.gguf \
+      ef728c8e0c337fd1067b947af006e38a9ef2419e56feced4fd29b4bf0636e30c
+
 # deckard-heretic: DavidAU's DECKARD-HERETIC finetune of Gemma-4-31B, quantized
 # to Q4_K_M by mradermacher. Pinned 2026-07-29 (ai-08): the on-disk file is
 # byte-identical to this repo's static Q4_K_M (HF LFS oid == the sha256 below).

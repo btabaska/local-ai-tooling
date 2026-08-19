@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Pin the default tool set on the `chat` model (2026-08-17).
+"""Pin the default tool set on the chat-class models (2026-08-17).
 
 Operator decision: every OWUI tool EXCEPT identify_plant is on by default in
 plain chat, so nothing needs toggling per conversation. identify_plant stays
 off here — it is Plant Scout's pinned tool (seed-owui-plant-scout.py) and only
 makes sense with a photo attached.
+
+2026-08-19: extended from `chat` alone to the chat bake-off trials
+(chat-q38-trial / chat-gemma-26b-trial) so all three run the identical tool
+belt — remove them from MODELS when the bake-off settles.
 
 Pinning is via model.info.meta.toolIds — the FRONTEND merges the list into
 every chat request (Chat.svelte), same mechanism as Plant Scout. The ids are
@@ -67,28 +71,31 @@ def req(method, path, body=None):
         return None
 
 
-rec = req("GET", "/api/v1/models/model?id=chat")
-assert rec, "chat model record not found — run seed-owui-model-capabilities.sh first"
+MODELS = ["chat", "chat-q38-trial", "chat-gemma-26b-trial"]
 
-meta = rec.get("meta") or {}
-if list(meta.get("toolIds") or []) == PIN:
-    print("chat toolIds already pinned: %s" % PIN)
-    sys.exit(0)
+for mid in MODELS:
+    rec = req("GET", "/api/v1/models/model?id=" + mid)
+    assert rec, "%s model record not found — run seed-owui-model-capabilities.sh first" % mid
 
-meta["toolIds"] = list(PIN)
-form = {
-    "id": "chat",
-    "name": rec.get("name") or "chat",
-    "base_model_id": rec.get("base_model_id"),
-    "meta": meta,
-    "params": rec.get("params") or {},
-    "access_grants": rec.get("access_grants") or [],
-    "is_active": rec.get("is_active", True),
-}
-assert req("POST", "/api/v1/models/model/update?id=chat", form)
+    meta = rec.get("meta") or {}
+    if list(meta.get("toolIds") or []) == PIN:
+        print("%s toolIds already pinned: %s" % (mid, PIN))
+        continue
 
-rec = req("GET", "/api/v1/models/model?id=chat")
-tools = (rec.get("meta") or {}).get("toolIds") or []
-vision = ((rec.get("meta") or {}).get("capabilities") or {}).get("vision")
-assert tools == PIN and "identify_plant" not in tools, rec
-print("verified: chat toolIds=%s vision=%s (preserved)" % (tools, vision))
+    meta["toolIds"] = list(PIN)
+    form = {
+        "id": mid,
+        "name": rec.get("name") or mid,
+        "base_model_id": rec.get("base_model_id"),
+        "meta": meta,
+        "params": rec.get("params") or {},
+        "access_grants": rec.get("access_grants") or [],
+        "is_active": rec.get("is_active", True),
+    }
+    assert req("POST", "/api/v1/models/model/update?id=" + mid, form)
+
+    rec = req("GET", "/api/v1/models/model?id=" + mid)
+    tools = (rec.get("meta") or {}).get("toolIds") or []
+    vision = ((rec.get("meta") or {}).get("capabilities") or {}).get("vision")
+    assert tools == PIN and "identify_plant" not in tools, rec
+    print("verified: %s toolIds=%s vision=%s (preserved)" % (mid, tools, vision))

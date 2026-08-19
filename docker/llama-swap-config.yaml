@@ -237,6 +237,29 @@ models:
       --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 
+  # Gemma 4 26B-A4B IT MoE (~4B active) — 2026-08-19 chat bake-off trial
+  # (LiteLLM `chat-gemma-26b-trial`, vs chat/gemma4-31b + chat-q38-trial).
+  # Non-QAT UD-Q4_K_XL 15.84G (26B QAT quality disputed upstream — see
+  # models.manifest.yaml). Text-only on purpose: no mmproj here, images stay
+  # on chat-vision. Gemma 4 family sampler (same card settings as the 31B).
+  # MEASURED 2026-08-19 (b10438, q8_0 KV + FA): 18.1G server @65536 (~4.9G
+  # card headroom — roomiest big lane); warm decode ~128 t/s (900 tok / 7s);
+  # thinking auto-on like the 31B; tools -> clean finish_reason=tool_calls.
+  # KV is ~4x cheaper than the 31B (5:1 iSWA, window 1024, 5 full-attn layers
+  # x 2 KV-heads) — 131072 fits (~+0.7G) if the trial wins and long-ctx
+  # matters. Known upstream cautions for the bake-off: multi-turn agentic is
+  # its weak axis (tau2 68.2 vs 31B's 76.9; BFCL-v4 multi-turn 45%) and
+  # June-era thinking-loop reports (July template fix shipped in this GGUF;
+  # if loops appear, add --repeat-penalty 1.05 or --reasoning off).
+  "gemma4-26b-a4b":
+    name: "Gemma 4 26B-A4B IT (MoE ~4B active, text-only — chat trial)"
+    cmd: |
+      ${srv}
+      --model /models/gemma4-26b-a4b.gguf
+      --ctx-size 65536
+      --temp 1.0 --top-p 0.95 --top-k 64
+    ttl: 120
+
   # DavidAU DECKARD-HERETIC finetune of Gemma-4-31B, Q4_K_M GGUF by mradermacher
   # (sha256-verified against models.manifest.yaml, 2026-07-29). DavidAU card
   # defers to Gemma 4 org settings: temp 1.0 top_p 0.95 top_k 64.
@@ -393,6 +416,7 @@ groups:
       - "qwen3.6-35b-a3b"
       - "qwen3.6-35b-a3b-swarm"   # ai-10; same weights, --parallel 4 profile
       - "gemma4-31b-qat"
+      - "gemma4-26b-a4b"   # 2026-08-19 chat bake-off trial
       - "deckard-heretic"
       - "cydonia-24b"
       - "dolphin-venice-24b"

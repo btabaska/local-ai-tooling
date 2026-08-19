@@ -70,6 +70,25 @@ model_list:
       api_base: http://llama-swap:8080/v1
       api_key: none
 
+  # ---- Chat bake-off trials (2026-08-19) ----
+  # 3-way household bake-off vs `chat` (gemma4-31b): same OWUI wiring (native
+  # function calling, full tool pin, shared system prompt via
+  # seed-owui-chat-presets.py). Settle by real use, then repoint `chat` at the
+  # winner's llama-swap model and retire these aliases.
+  # chat-q38-trial rides the SAME lane as `q38`/opencode (reasoning-effort
+  # medium baked server-side — per-request effort needs a >=b10448 image bump).
+  - model_name: chat-q38-trial
+    litellm_params:
+      model: openai/qwen3.8-27b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
+  - model_name: chat-gemma-26b-trial
+    litellm_params:
+      model: openai/gemma4-26b-a4b
+      api_base: http://llama-swap:8080/v1
+      api_key: none
+
   # ---- Creative / uncensored chat ----
   - model_name: chat-creative
     litellm_params:

@@ -9,8 +9,11 @@
 # - NATIVE MCP (streamable-HTTP, OWUI >=0.6.31; type "mcp"):
 #     fleet      -> http://host.docker.internal:8765/mcp (fleet-mcp.service on
 #                   the rig host, ops/fleet-mcp.service). Function filter keeps
-#                   9 of 10 tools — run_verification_checks is excluded
-#                   (minutes-long full check sweep; chat-hostile).
+#                   12 of 14 tools (2026-08-20: +list_dir/find_files/disk_usage,
+#                   the read-only filesystem trio — names/sizes only, never
+#                   contents). Excluded: run_verification_checks (minutes-long
+#                   full check sweep; chat-hostile) + search_web (OWUI native
+#                   web search already covers it).
 #     comfyui    -> http://comfyui-mcp:9000/mcp (lai-11; docker/comfyui-mcp).
 #                   Filter keeps 3 of 17: the two curated workflow tools
 #                   (zimage_turbo, noobai_anime) + view_image. Job/asset/publish
@@ -51,11 +54,13 @@
 #   reactions/relations stay out of chat. opencode gets the FULL 19-tool set
 #   via clients/opencode.json (memos remote MCP, {env:MEMOS_MCP_TOKEN}).
 #
-# Tool budget: fleet 9 + time 2 + fetch 1 +
-# sequential-thinking 1 + comfyui 3 + playwright 8 + openzim 3 + memos 7 = 34
-# OWUI-visible tools (headroom 6 under the ~40 cap that degrades small-model
-# routing; serena 9 + context7 2 trimmed 2026-08-17 as opencode-only; the
-# lai-16 notes-MCP read pair retired 2026-08-14 with the read-27 trial). Guarded by the mini checks
+# Tool budget: fleet 12 + time 2 + fetch 1 +
+# sequential-thinking 1 + comfyui 3 + playwright 8 + openzim 3 + memos 7 = 37
+# OWUI-visible tools (headroom 3 under the ~40 cap that degrades small-model
+# routing — the fleet fs trio 2026-08-20 spent half the old headroom; next
+# addition should retire something first. serena 9 + context7 2 trimmed
+# 2026-08-17 as opencode-only; the lai-16 notes-MCP read pair retired
+# 2026-08-14 with the read-27 trial). Guarded by the mini checks
 # `owui-mcp-tools` (budget) + `image-browser-mcp` (lai-11 servers + filters).
 #
 # NOTE: chat models reference these by stable ids (server:time, server:fetch,
@@ -95,8 +100,8 @@ payload=$(cat <<'JSON'
   "config": {"enable": true, "function_name_filter_list": "", "access_grants": []},
   "info": {"id": "sequential-thinking", "name": "sequential thinking", "description": "mcpo stdio bridge: reasoning scratchpad"}, "spec_type": "url", "spec": ""},
  {"url": "http://host.docker.internal:8765/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
-  "config": {"enable": true, "function_name_filter_list": "list_hosts,service_status,journal_tail,list_containers,container_logs,system_overview,check_url,gpu_status,healthchecks_summary", "access_grants": []},
-  "info": {"id": "fleet", "name": "Fleet (native MCP)", "description": "Read-only homelab fleet inspection (ai-01, fleet-mcp.service on the rig) over native streamable-HTTP. run_verification_checks is filtered out (minutes-long, chat-hostile)."}},
+  "config": {"enable": true, "function_name_filter_list": "list_hosts,service_status,journal_tail,list_containers,container_logs,system_overview,check_url,gpu_status,healthchecks_summary,list_dir,find_files,disk_usage", "access_grants": []},
+  "info": {"id": "fleet", "name": "Fleet (native MCP)", "description": "Read-only homelab fleet inspection (ai-01, fleet-mcp.service on the rig) over native streamable-HTTP. Incl. the 2026-08-20 read-only filesystem tools (list_dir/find_files/disk_usage — names+sizes only, never contents). run_verification_checks (minutes-long) + search_web (OWUI has native search) are filtered out."}},
  {"url": "http://comfyui-mcp:9000/mcp", "path": "", "type": "mcp", "auth_type": "none", "headers": null, "key": "",
   "config": {"enable": true, "function_name_filter_list": "zimage_turbo,noobai_anime,view_image", "access_grants": []},
   "info": {"id": "comfyui", "name": "ComfyUI (native MCP)", "description": "Image generation tools (lai-11, comfyui-mcp v1.1.1 -> gpu-arbiter): zimage_turbo (realistic, 8-step) + noobai_anime (SDXL anime) + view_image. Full 17-tool set is opencode-only."}},

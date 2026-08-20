@@ -9,12 +9,15 @@ Serves streamable-http MCP at http://<rig>:8765/mcp for:
 SAFETY MODEL: every tool builds its command from validated, constrained
 arguments (host enum, unit-name regex, capped line counts, URL allowlist).
 There is deliberately NO arbitrary-command tool — the LLM cannot inject.
+The filesystem tools (2026-08-20) expose names/sizes/mtimes ONLY — never
+file contents (contents would leak .env/key material to chat users).
 SSH to mini/nas uses the dedicated `fleet-*` LAN entries (key restricted by
 from= on the remote side). Keep this server Trusted-VLAN-only (rig UFW).
 
 Deployed as fleet-mcp.service (systemd, see ops/fleet-mcp.service).
 """
 import re
+import shlex
 import subprocess
 import json
 import os
@@ -43,7 +46,10 @@ HOSTS = {
     "nas": {
         "ssh": "fleet-nas",
         "desc": "Synology NAS, 192.168.10.4. Media stack (*arr, Plex, CWA), "
-                "backups (Hyper Backup->B2). NOTE: this tool's restricted "
+                "backups (Hyper Backup->B2). Storage volumes /volume1..3 live "
+                "HERE (not on the rig): games/ROM library at /volume1/games "
+                "(ROMs under romm/roms/<platform>), media on /volume2 + "
+                "/volume3. NOTE: this tool's restricted "
                 "credentials cannot query docker on the nas — a failed container "
                 "listing there is a TOOL limitation, not evidence about the host "
                 "(containers may be running fine). Use service/HTTP checks instead.",
@@ -51,6 +57,11 @@ HOSTS = {
 }
 
 UNIT_RE = re.compile(r"^[A-Za-z0-9@:._-]{1,80}$")
+# Filesystem tools: absolute paths / glob patterns in a conservative charset
+# (spaces + the punctuation real ROM/media names use); shlex.quote is applied
+# ON TOP before anything reaches a shell. `..` refused to keep paths literal.
+PATH_RE = re.compile(r"^/[A-Za-z0-9 ._/@+()\[\],'&-]{0,240}$")
+GLOB_RE = re.compile(r"^[A-Za-z0-9 ._*?()\[\],'&-]{1,80}$")
 URL_ALLOW = re.compile(
     r"^https?://("
     r"[a-z0-9.-]+\.tabaska\.us|[a-z0-9.-]+\.ts\.net|"
@@ -65,7 +76,10 @@ def _run(host: str, remote_cmd: str, timeout: int = 30) -> str:
         return f"ERROR: unknown host {host!r}; known: {list(HOSTS)}"
     alias = HOSTS[host]["ssh"]
     if alias:
-        argv = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", alias, remote_cmd]
+        # LogLevel=ERROR: ssh warnings (e.g. the DSM post-quantum KEX banner)
+        # otherwise land in every tool result and waste model context.
+        argv = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
+                "-o", "LogLevel=ERROR", alias, remote_cmd]
     else:
         argv = ["bash", "-c", remote_cmd]
     try:
@@ -121,6 +135,53 @@ def system_overview(host: str) -> str:
     """Uptime, memory, disk and load for a host (all NAS volumes included)."""
     return _run(host, "uptime; echo; free -h 2>/dev/null | head -2; echo; "
                       "df -h / /volume1 /volume2 /volume3 2>/dev/null | head -8")
+
+
+@mcp.tool()
+def list_dir(host: str, path: str) -> str:
+    """Directory listing (names, sizes, mtimes) at an absolute path on a host
+    (rig|mini|nas). Read-only; never returns file CONTENTS. Useful roots:
+    nas /volume1/games (ROMs under romm/roms/<platform>), rig /opt/llm/models.
+    Empty/permission-denied output says the TOOL user can't read it, not that
+    it's empty."""
+    if not PATH_RE.match(path) or ".." in path:
+        return ("ERROR: path refused by input validation (absolute path, plain "
+                "characters) - this says NOTHING about whether the path exists")
+    return _run(host, f"ls -lah {shlex.quote(path)} 2>&1 | head -150", timeout=25)
+
+
+@mcp.tool()
+def find_files(host: str, path: str, pattern: str, max_depth: int = 4) -> str:
+    """Case-insensitive filename search under an absolute path on a host
+    (rig|mini|nas). `pattern` is a shell glob matched against names; a bare
+    word is auto-wrapped ('ace combat' -> '*ace combat*'). Read-only, names
+    only, first 100 hits. Depth caps at 6; deep scans of big NAS volumes can
+    take up to ~90s — narrow `path` (e.g. /volume1/games/romm/roms) if slow."""
+    if not PATH_RE.match(path) or ".." in path:
+        return ("ERROR: path refused by input validation - this says NOTHING "
+                "about whether the path exists")
+    if not GLOB_RE.match(pattern):
+        return ("ERROR: pattern refused by input validation (letters/digits/"
+                "space/._-*?()[] only) - try a simpler pattern")
+    if not any(ch in pattern for ch in "*?["):
+        pattern = f"*{pattern}*"
+    depth = max(1, min(int(max_depth), 6))
+    return _run(host, f"find {shlex.quote(path)} -maxdepth {depth} "
+                      f"-iname {shlex.quote(pattern)} 2>/dev/null | head -100",
+                timeout=90)
+
+
+@mcp.tool()
+def disk_usage(host: str, path: str, depth: int = 1) -> str:
+    """Per-subdirectory disk usage (du -h) under an absolute path on a host
+    (rig|mini|nas). Depth caps at 3 — deep du on the NAS spinning volumes is
+    slow. For whole-filesystem free space use system_overview instead."""
+    if not PATH_RE.match(path) or ".." in path:
+        return ("ERROR: path refused by input validation - this says NOTHING "
+                "about whether the path exists")
+    depth = max(0, min(int(depth), 3))
+    return _run(host, f"du -xh -d {depth} {shlex.quote(path)} 2>/dev/null | head -60",
+                timeout=90)
 
 
 @mcp.tool()

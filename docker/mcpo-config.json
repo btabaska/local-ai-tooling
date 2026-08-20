@@ -61,9 +61,12 @@
     "openzim": {
       "//": "lai-13: openzim-mcp v2.5.5 (pinned; libzim-native Xapian search over the NAS ZIM library). --mode advanced = 8 tools; OWUI is filtered to 3 in seed-owui-tool-servers.sh, non-OWUI consumers (verification check openzim-mcp-search) get all 8. Reads the rig RO CIFS mount /mnt/nas-zim, bind-mounted ro at /zim (docker-compose.yml). Package pins mcp<2 itself (no --with guard needed).",
       "//2": "Content caps (2026-08-17): package defaults (zim_get 100k chars ~28k tok, snippets 3k chars) blew the OWUI chat lane's 49152 ctx (gemma vision squeeze, lai-22) on the gamefaqs ZIM (391k-char FAQ pages). 24k chars ~7k tok per get + 1k snippets keep a list->cross-search->get chain ~14k tok. Callers still page via content_offset; openzim-mcp-search check only needs >800 chars.",
+      "//3": "[reranker] extra added 2026-08-19: the FastEmbed cross-encoder rescores search hits against the query — without it every search ran raw Xapian order and title-heavy chunked ZIMs (gamefaqs part-articles all start with the same H1) drowned content hits in identical title snippets (the Minish Cap flail). Results carry an in-band <!-- reranker=engaged|skipped:* --> marker; 'skipped:not_installed' means this extra regressed. CPU-only (fastembed/onnx); first search after a container RECREATE cold-downloads the cross-encoder model (~1 min) — plain restarts keep the uv + model cache.",
       "command": "uvx",
       "args": [
-        "openzim-mcp==2.5.5",
+        "--from",
+        "openzim-mcp[reranker]==2.5.5",
+        "openzim-mcp",
         "--mode",
         "advanced",
         "/zim"

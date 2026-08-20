@@ -27,3 +27,4 @@ backups/
 docker/.env.bak*
 bakeoff/results/*.log
 
+bakeoff/results/zim-questline-probe-*.json

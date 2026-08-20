@@ -55,6 +55,10 @@ HALLUCINATION_TELLS = ["isn't a singular", "no singular", "not a traditional",
 MAX_ROUNDS = int(os.environ.get("PROBE_MAX_ROUNDS", "14"))
 MODEL_WALL_CAP_S = int(os.environ.get("PROBE_WALL_CAP_S", "720"))
 GEN_TIMEOUT_S = 300
+# 32768 matches the OWUI chat presets. 4096 (first run) silently starved the
+# THINKING lane: q38's final synthesis burned the whole budget in
+# reasoning_content and returned finish_reason=length with empty content.
+MAX_TOKENS = int(os.environ.get("PROBE_MAX_TOKENS", "32768"))
 
 
 def http_json(url, body=None, timeout=120, headers=None):
@@ -120,7 +124,7 @@ def run_model(lane, tools, system):
         try:
             resp = http_json(LLAMA, body={
                 "model": lane, "messages": messages,
-                "tools": tools, "max_tokens": 4096,
+                "tools": tools, "max_tokens": MAX_TOKENS,
             }, timeout=GEN_TIMEOUT_S)
         except Exception as e:  # noqa: BLE001
             stop = f"gen_error: {e}"

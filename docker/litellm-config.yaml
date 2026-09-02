@@ -13,37 +13,8 @@
 # is unauthenticated inside the compose network / LAN firewall).
 
 model_list:
-  # ---- Coding / agentic ----
-  # Bake-off winner 2026-07-15 (see bakeoff/results/results.jsonl):
-  # qwen3.6-35b-a3b — 3/3 tasks, 0 malformed tool calls, fewest turns,
-  # 73-126 tok/s (vs 27b dense at 23-31 tok/s). 27b kept as coder-strong for
-  # long/hard runs (community consensus pick for multi-hour reliability).
-  - model_name: coder
-    litellm_params: &coder
-      model: openai/qwen3.6-35b-a3b
-      api_base: http://llama-swap:8080/v1
-      api_key: none
-  # legacy alias, same target — existing clients keep working
-  - model_name: code
-    litellm_params: *coder
 
-  # ---- Swarm coder: same weights as `coder`, 4 parallel slots (ai-10) ----
-  # Use when running 2-4 concurrent agents. Point every agent in a swarm at THIS
-  # alias — mixing aliases inside one swarm forces a ~19 GB llama-swap reload on
-  # every delegation, since both entries are `big`/exclusive.
-  # Single deep agent -> `coder`. Quality-critical single task -> `coder-strong`.
-  - model_name: coder-swarm
-    litellm_params:
-      model: openai/qwen3.6-35b-a3b-swarm
-      api_base: http://llama-swap:8080/v1
-      api_key: none
 
-  # ---- Strong/slow coder for long or gnarly tasks ----
-  - model_name: coder-strong
-    litellm_params:
-      model: openai/qwen3.6-27b
-      api_base: http://llama-swap:8080/v1
-      api_key: none
 
   # Qwen3.8-27B trial lane — tuned 2026-08-17 (ctx 114688 + MTP ~55 t/s; full
   # bake-off data in llama-swap-config.yaml). Candidate coder-strong successor;
@@ -54,40 +25,33 @@ model_list:
       api_base: http://llama-swap:8080/v1
       api_key: none
 
+
+
   # ---- General chat (default) ----
   # 2026-08-17 split: chat = text-only (ctx 65536); chat-vision = mmproj lane
   # (ctx 49152) for the OWUI Plant Scout preset — same gemma weights, separate
   # llama-swap entries (switching lanes swaps the loaded model).
   - model_name: chat
     litellm_params:
-      model: openai/gemma4-31b-qat
+      model: openai/gemma4-31b-heretic
       api_base: http://llama-swap:8080/v1
       api_key: none
 
   - model_name: chat-vision
     litellm_params:
-      model: openai/gemma4-31b-qat-vision
+      model: openai/gemma4-31b-heretic-vision
       api_base: http://llama-swap:8080/v1
       api_key: none
 
-  # ---- Chat bake-off trials (2026-08-19) ----
-  # 3-way household bake-off vs `chat` (gemma4-31b): same OWUI wiring (native
-  # function calling, full tool pin, shared system prompt via
-  # seed-owui-chat-presets.py). Settle by real use, then repoint `chat` at the
-  # winner's llama-swap model and retire these aliases.
-  # chat-q38-trial rides the SAME lane as `q38`/opencode (reasoning-effort
-  # medium baked server-side — per-request effort needs a >=b10448 image bump).
-  - model_name: chat-q38-trial
+  # chat-fast (lai-30): HauhauCS Gemma4-12B QAT Uncensored, native 262144 ctx
+  # with its MTP drafter. Carries the same pinned tool belt as `chat`.
+  - model_name: chat-fast
     litellm_params:
-      model: openai/qwen3.8-27b
+      model: openai/gemma4-12b-hauhau
       api_base: http://llama-swap:8080/v1
       api_key: none
 
-  - model_name: chat-gemma-26b-trial
-    litellm_params:
-      model: openai/gemma4-26b-a4b
-      api_base: http://llama-swap:8080/v1
-      api_key: none
+
 
   # ---- Creative / uncensored chat ----
   - model_name: chat-creative
@@ -116,12 +80,6 @@ model_list:
       api_base: http://llama-swap:8080/v1
       api_key: none
 
-  # ---- Fast 7B: autocomplete / ops-agent inner loop / cheap tool routing ----
-  - model_name: fast
-    litellm_params:
-      model: openai/qwen2.5-coder-7b
-      api_base: http://llama-swap:8080/v1
-      api_key: none
 
   # ---- Tiny utility: tagging, titles, classification (temp 0 baked) ----
   - model_name: utility

@@ -44,23 +44,6 @@ macros:
     --no-webui
 
 models:
-  # ---- Coding / agentic (bake-off pool, ai-01) ----
-  # MTP self-speculative decoding (promoted 2026-07-15 after A/B bench):
-  # 34.5 -> 50 tok/s (1.46x) with --spec-draft-n-max 2; n-max 3 was slower.
-  # Caveats: --parallel 1 is REQUIRED with MTP; do NOT send images through
-  # this entry (llama.cpp #23233 crash); if quantized-KV + MTP ever wedges,
-  # drop the two cache-type flags first.
-  # HF card (thinking, precise coding): temp 0.6 top_p 0.95 top_k 20 min_p 0.
-  "qwen3.6-27b":
-    name: "Qwen3.6 27B MTP (dense, spec-decode ~50 t/s)"
-    cmd: |
-      ${srv}
-      --model /models/Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf
-      --ctx-size 114688
-      --spec-type draft-mtp --spec-draft-n-max 2
-      --parallel 1
-      --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
-    ttl: 120
 
   # Qwen3.8-27B — TUNED 2026-08-17 (r/LocalLLaMA research + 3-round ctx/MTP
   # bake-off; supersedes the 2026-08-15 conservative trial: ctx 98304, no MTP).
@@ -100,11 +83,11 @@ models:
   # --ctx-checkpoints 4 = DeltaNet recurrent-state checkpoints so agent-loop
   # prefix reuse doesn't force full reprocessing (hybrid-arch specific).
   "qwen3.8-27b":
-    name: "Qwen3.8 27B MTP (dense VLM text-only, ~55 t/s)"
+    name: "Qwen3.8 27B ISTA GSQ-RCO IQ3_S MTP (245760 ctx, sole coding lane)"
     cmd: |
       ${srv}
-      --model /models/qwen3.8-27b.gguf
-      --ctx-size 114688
+      --model /models/qwen3.8-27b-ista-iq3s-mtp.gguf
+      --ctx-size 245760
       --spec-type draft-mtp --spec-draft-n-max 2
       --ctx-checkpoints 4
       --parallel 1
@@ -112,95 +95,9 @@ models:
       --temp 1.0 --top-p 0.95 --top-k 20 --min-p 0
     ttl: 120
 
-  # HF card (thinking, precise coding): temp 0.6 top_p 0.95 top_k 20 min_p 0.
-  "qwen3.6-35b-a3b":
-    name: "Qwen3.6 35B-A3B (MoE Q4, 23G weights — VRAM-tight)"
-    cmd: |
-      ${srv}
-      --model /models/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
-      --ctx-size 262144
-      --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0
-    ttl: 120
 
-  # ---- SWARM profile: same weights, tuned for N concurrent agents (ai-10) ----
-  # ADDITIVE — the single-slot entry above is unchanged and remains the default
-  # `coder`. This one backs the `coder-swarm` LiteLLM alias. Roll back by
-  # deleting this block + its group member + the alias.
-  #
-  # WHY A SECOND PROFILE: `--parallel 1` (required by MTP) is worst-case for a
-  # swarm. Requests queue head-of-line instead of batching. MTP is deliberately
-  # ABSENT here: it needs --parallel 1, and speculative drafting steals FLOPs
-  # once the batch is already saturated.
-  #
-  # VRAM: --ctx-size is the TOTAL KV pool, divided across slots
-  # (per_slot = n_ctx / n_parallel), so KV cost is FLAT in slot count.
-  # Measured from the published config: this model is hybrid linear-attention —
-  # only 10 of 40 layers hold real KV — so q8_0 KV is 10,240 B/token:
-  #     196608 total = 49,152/slot = 1.88 GiB KV   (this profile)
-  #     262144 total = 65,536/slot = 2.50 GiB KV   (the single-slot entry above)
-  # Deliberately set BELOW the 262144 single-slot ceiling: --parallel 4 enlarges
-  # the activation/batch buffers, and the 0.6 GiB saved on KV buys headroom for
-  # them. These are <1 GiB-headroom fits — if this OOMs, drop to 131072 first.
-  #
-  # Measured 2026-07-30 (bakeoff/prefix-cache-probe.py): prefill 1,131 tok/s,
-  # prefix caching CONFIRMED WORKING on this model (19.3x, 94.8% of prefill
-  # eliminated on a repeated 13k-token prefix). That is what makes N agents
-  # sharing one system prompt affordable: only the first pays the ~43s prefill
-  # for a 49k context; the rest hit cache in ~0.6s.
-  "qwen3.6-35b-a3b-swarm":
-    name: "Qwen3.6 35B-A3B SWARM (4 slots x 49k, no MTP)"
-    cmd: |
-      ${srv}
-      --model /models/Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
-      --ctx-size 196608
-      --parallel 4
-      --reasoning off
-      --temp 0.7 --top-p 0.8 --top-k 20 --min-p 0
-    ttl: 120
-    # REASONING IS OFF HERE, AND THE SAMPLER CHANGES WITH IT (ai-10, 2026-07-30).
-    # Flag verified present in this build: `--reasoning [on|off|auto]`, plus
-    # `--reasoning-budget N` and env LLAMA_ARG_REASONING.
-    #
-    # Why off on the SWARM profile only:
-    #   - Measured on this rig: a max_tokens=5 request returned
-    #     finish_reason="length" with content="" and the entire budget spent in
-    #     reasoning_content. Output tokens are the scarce resource in a swarm
-    #     (~0.4-0.7M tok/hr rig-wide), so thinking is a direct throughput tax.
-    #   - Two documented llama.cpp failures are reasoning-triggered: #20260
-    #     (prose before <tool_call> fails the PEG grammar -> HTTP 500) and
-    #     #20809 (tool calls land in reasoning_content with finish_reason
-    #     length). Both hit agent loops specifically.
-    #   - It fits the intended topology: think in the SPINE (plan/decompose on
-    #     `coder` / `coder-strong`, reasoning ON), execute in the RIBS. Ribs run
-    #     pre-decomposed tasks; they do not need to re-derive the design.
-    # `coder` (the single-slot entry above) keeps reasoning ON and stays 0.6/0.95.
-    #
-    # SAMPLER: Qwen3.x recommends different values per mode — thinking 0.6/0.95,
-    # non-thinking (instruct) 0.7/0.80. Changing --reasoning WITHOUT changing the
-    # sampler is a half-migration, so both moved together.
-    # ⚠ Any client agent pointed at `coder-swarm` must therefore send temp 0.7 /
-    #   top_p 0.8, or send nothing and inherit these. The existing `build`/`plan`
-    #   agents send 0.6/0.95 — correct for `coder`/`coder-strong`, WRONG here.
-    # Middle ground if quality suffers: swap `--reasoning off` for
-    # `--reasoning-budget 512` (bounded thinking) and revert the sampler.
-    #
-    # OTHER OPTIONAL EXTRAS — verify each exists before enabling, since an
-    # unknown flag stops llama-server from starting at all:
-    #   docker compose exec llama-swap /app/llama-server --help | grep -E 'cache-reuse|cache-ram|kv-unified|backend-sampling'
-    # Then append to cmd above:
-    #   --cache-reuse 256      # reuse cache across a diverged middle chunk
-    #                          # (agent loops insert tool results mid-prompt);
-    #                          # reportedly defaults to 0 = OFF
-    #   --cache-ram 24576      # MiB of system RAM for prompt-cache checkpoints.
-    #                          # LOW PRIORITY here: at 10,240 B/token the 8 GiB
-    #                          # default already holds ~840k tokens of
-    #                          # checkpoints. Free, but not the lever it would
-    #                          # be on a conventional-attention model.
-    #   --backend-sampling     # moves sampling off the CPU. The 12700K already
-    #                          # gives 10 threads to the embedder, and GPU util
-    #                          # via llama-server is reportedly only ~60% vs
-    #                          # 90-96% under llama-batched-bench, the gap being
-    #                          # CPU-side sampling. Most likely to help at np>=4.
+
+
 
   # NOTE (ai-08, 2026-07-29): qwen3-coder-30b + devstral-24b were RETIRED here.
   # Both were served but had NO LiteLLM alias (gateway-unreachable), and the
@@ -208,56 +105,78 @@ models:
   # Their weights moved to /opt/llm/models/archive/ (see models.manifest.yaml
   # `archived:`) — restore by moving back + re-adding a model block if ever needed.
 
-  # ---- Chat ----
-  # Gemma 4 official: temp 1.0 top_p 0.95 top_k 64. n_ctx_train 262144 (SWA).
-  # SPLIT 2026-08-17: vision moved to its own entry (Plant Scout is the only
-  # deliberate vision consumer — operator decision). Text lane back to 65536
-  # (the measured 2026-08-16 text-only fit: 22.1G, ~0.8G headroom under grown
-  # desktop residents; 73728/81920 OOM). Same weights, two configs — llama-swap
-  # swaps (unload/reload) when switching lanes; plant ID is occasional, fine.
-  "gemma4-31b-qat":
-    name: "Gemma 4 31B IT QAT (17G weights, text-only)"
+
+
+
+  # ---- Chat (lai-30 roster, 2026-09-01) ----
+  # Operator decision: exactly two Gemmas. `chat` is the uncensored-heretic
+  # 31B; `chat-fast` is the HauhauCS QAT 12B. Gemma 4 official sampler:
+  # temp 1.0 top_p 0.95 top_k 64.
+  #
+  # MEASURED ceilings 2026-09-01 (q8_0 KV + flash-attn, desktop ~1.2G resident):
+  #   heretic-31B Q4_K_S text   65536 (23.2G, 847M free; 73728 OOM)
+  #   heretic-31B Q4_K_S vision 49152 (23.5G, 525M free; 57344 OOM)
+  #   hauhau-12B  Q4_K_M +MTP  262144 = NATIVE MAX (12.5G, 11.7G free)
+  # The two 31B numbers are IDENTICAL to the gemma4-31b-qat lane they replace,
+  # so this swap costs no context. Both are edge fits (<1G headroom) - same
+  # posture as before; the gaming force-unload hook is the safety valve.
+  #
+  # Q4_K_S (16.5 GiB) was chosen over Q4_K_M (17.4 GiB) deliberately: K_M costs
+  # ~one 8k ctx rung for a marginal quality gain, and max context was the
+  # operator's stated priority.
+  "gemma4-31b-heretic":
+    name: "Gemma 4 31B IT uncensored-heretic (chat, text-only)"
     cmd: |
       ${srv}
-      --model /models/gemma4-31b-qat.gguf
+      --model /models/gemma4-31b-heretic-q4ks.gguf
       --ctx-size 65536
       --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 
-  # Vision lane (LiteLLM `chat-vision`, OWUI Plant Scout preset): the 2026-08-16
-  # measured vision fit — 49152 + unsloth mmproj-F16; the 1.2G tower costs two
-  # 8k ctx steps (57344+mmproj OOMed at the 1.14G clip buffer).
-  "gemma4-31b-qat-vision":
-    name: "Gemma 4 31B IT QAT (17G weights + mmproj vision)"
+  # Vision lane (LiteLLM `chat-vision`, OWUI Plant Scout preset). Uses the
+  # heretic repo's OWN mmproj-BF16 - do not pair it with the retired unsloth
+  # qat mmproj.
+  #
+  # ctx 40960, NOT 49152 - and /health CANNOT be used to find this number.
+  # At 49152 llama-server fails to allocate the 140.5 MiB CLIP graph buffer
+  # ("ggml_backend_cuda_buffer_type_alloc_buffer ... cudaMalloc failed"),
+  # then LOGS THE ERROR AND CONTINUES: it prints "loaded multimodal model",
+  # answers /health 200, and SEGFAULTS on the first image. A load-only ceiling
+  # probe therefore reports 49152 as good. The 2026-09-01 re-probe scored a
+  # real image request instead (bakeoff/vision-probe.sh) and found 40960 =
+  # the true ceiling (23.2G peak, 795M free, zero alloc failures).
+  # This is one rung BELOW the retired gemma4-31b-qat-vision lane: the heretic
+  # Q4_K_S weights are ~0.4 GiB larger than the QAT ones, which is exactly the
+  # room the CLIP buffer needed.
+  "gemma4-31b-heretic-vision":
+    name: "Gemma 4 31B IT uncensored-heretic + mmproj (vision)"
     cmd: |
       ${srv}
-      --model /models/gemma4-31b-qat.gguf
-      --mmproj /models/mmproj-gemma-4-31b-qat-f16.gguf
-      --ctx-size 49152
+      --model /models/gemma4-31b-heretic-q4ks.gguf
+      --mmproj /models/mmproj-gemma4-31b-heretic-bf16.gguf
+      --ctx-size 40960
       --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 
-  # Gemma 4 26B-A4B IT MoE (~4B active) — 2026-08-19 chat bake-off trial
-  # (LiteLLM `chat-gemma-26b-trial`, vs chat/gemma4-31b + chat-q38-trial).
-  # Non-QAT UD-Q4_K_XL 15.84G (26B QAT quality disputed upstream — see
-  # models.manifest.yaml). Text-only on purpose: no mmproj here, images stay
-  # on chat-vision. Gemma 4 family sampler (same card settings as the 31B).
-  # MEASURED 2026-08-19 (b10438, q8_0 KV + FA): 18.1G server @65536 (~4.9G
-  # card headroom — roomiest big lane); warm decode ~128 t/s (900 tok / 7s);
-  # thinking auto-on like the 31B; tools -> clean finish_reason=tool_calls.
-  # KV is ~4x cheaper than the 31B (5:1 iSWA, window 1024, 5 full-attn layers
-  # x 2 KV-heads) — 131072 fits (~+0.7G) if the trial wins and long-ctx
-  # matters. Known upstream cautions for the bake-off: multi-turn agentic is
-  # its weak axis (tau2 68.2 vs 31B's 76.9; BFCL-v4 multi-turn 45%) and
-  # June-era thinking-loop reports (July template fix shipped in this GGUF;
-  # if loops appear, add --repeat-penalty 1.05 or --reasoning off).
-  "gemma4-26b-a4b":
-    name: "Gemma 4 26B-A4B IT (MoE ~4B active, text-only — chat trial)"
+  # chat-fast: HauhauCS Gemma4-12B QAT Uncensored (Balanced). Q4_K_M is the
+  # card's stated sweet spot (Gemma 4 is QAT'd for ~4-bit). Ships a SEPARATE
+  # MTP drafter file, so speculation needs --spec-draft-model (not the
+  # embedded-nextn form the Qwen lanes use); --parallel 1 is required with MTP.
+  # The drafter is built from base gemma-4-12B-it while the weights are the
+  # finetune - same architecture, so drafts are valid, acceptance may be
+  # slightly below a matched drafter. Text-only on purpose: it ships an mmproj
+  # upstream but images stay on chat-vision (see seed-owui-model-capabilities).
+  # HF card sampler: temp 0.6 top_k 64 top_p 0.9 min_p 0.05 repeat_penalty 1.1.
+  "gemma4-12b-hauhau":
+    name: "Gemma 4 12B QAT Uncensored Balanced (chat-fast, MTP, 256k)"
     cmd: |
       ${srv}
-      --model /models/gemma4-26b-a4b.gguf
-      --ctx-size 65536
-      --temp 1.0 --top-p 0.95 --top-k 64
+      --model /models/gemma4-12b-hauhau-q4km.gguf
+      --ctx-size 262144
+      --spec-type draft-mtp --spec-draft-model /models/mtp-gemma4-12b-it.gguf
+      --spec-draft-n-max 2
+      --parallel 1
+      --temp 0.6 --top-p 0.9 --top-k 64 --min-p 0.05 --repeat-penalty 1.1
     ttl: 120
 
   # DavidAU DECKARD-HERETIC finetune of Gemma-4-31B, Q4_K_M GGUF by mradermacher
@@ -273,17 +192,6 @@ models:
       --temp 1.0 --top-p 0.95 --top-k 64
     ttl: 120
 
-  # ---- Small / utility ----
-  # Qwen2.5 generation_config: temp 0.7 top_p 0.8 top_k 20 rep 1.05.
-  # Native n_ctx_train is 32768 (131k only via YaRN, degrades short-ctx).
-  "qwen2.5-coder-7b":
-    name: "Qwen2.5 Coder 7B (autocomplete / cheap tool loop)"
-    cmd: |
-      ${srv}
-      --model /models/qwen2.5-coder-7b.gguf
-      --ctx-size 32768
-      --temp 0.7 --top-p 0.8 --top-k 20 --repeat-penalty 1.05
-    ttl: 300
 
   # temp 0 on purpose (deterministic tagging/titles). n_ctx_train 131072.
   "fast-3b":
@@ -411,18 +319,15 @@ groups:
     swap: true
     exclusive: true
     members:
-      - "qwen3.6-27b"
-      - "qwen3.8-27b"   # 2026-08-15 trial
-      - "qwen3.6-35b-a3b"
-      - "qwen3.6-35b-a3b-swarm"   # ai-10; same weights, --parallel 4 profile
-      - "gemma4-31b-qat"
-      - "gemma4-26b-a4b"   # 2026-08-19 chat bake-off trial
+      - "qwen3.8-27b"   # sole coding/agentic lane (lai-30)
+      - "gemma4-31b-heretic"   # chat, text-only
+      - "gemma4-31b-heretic-vision"   # chat-vision; Plant Scout's lane
+      - "gemma4-12b-hauhau"   # chat-fast, +MTP drafter
       - "deckard-heretic"
       - "cydonia-24b"
       - "dolphin-venice-24b"
       - "goetia-24b"
-      - "qwen2.5-coder-7b"
-      - "fast-3b"
+      - "fast-3b"   # utility alias
   "embed":
     swap: false
     exclusive: false

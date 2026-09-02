@@ -5,11 +5,11 @@ Drives the WHOLE research chain, not liveness: logs into LDR as the dedicated
 `ldr-probe` account (per-user SQLCipher DB; auto-re-registers after a volume
 wipe), starts a real quick-mode research, and asserts it completes with a
 cited report — which proves LDR -> LiteLLM (openai_endpoint, scoped virtual
-key) -> llama-swap coder-strong AND LDR -> mini SearXNG all work.
+key) -> llama-swap q38 AND LDR -> mini SearXNG all work.
 
 Best-effort aware (mirrors journaling-loop-e2e): the strong model shares the
 24GB card with Immich ML (night window) / games — before spending a research
-run it pre-probes whether coder-strong's upstream (llama-swap qwen3.6-27b)
+run it pre-probes whether q38's upstream (llama-swap qwen3.8-27b)
 can load AT ALL. If it can't, prints LDR_E2E_SKIP_GPU_BUSY (a PASS: VRAM
 contention is policy, not an incident — see rig-gpu-vram-contention). The
 pre-probe also warms the model so the research itself runs fast. A BAD is
@@ -30,9 +30,9 @@ import urllib.request
 
 BASE = os.environ.get("LDR_URL", "http://localhost:5000")
 LLAMA_SWAP = os.environ.get("LDR_LLAMA_URL", "http://localhost:9292")
-# llama-swap upstream id behind the LiteLLM `coder-strong` alias (LDR_LLM_MODEL).
+# llama-swap upstream id behind the LiteLLM `q38` alias (LDR_LLM_MODEL).
 # Keep in sync with docker/litellm-config.yaml if the alias is ever re-pointed.
-STRONG_UPSTREAM = "qwen3.6-27b"
+STRONG_UPSTREAM = "qwen3.8-27b"
 ENVF = os.path.expanduser("~/Documents/GitHub/local-ai-tooling/docker/.env")
 QUERY = "What year was the Linux kernel first released and by whom?"
 RESEARCH_BUDGET_S = 600
@@ -113,9 +113,9 @@ try:
 except Exception as e:
     bail("LDR_E2E_BAD reason=auth-flow err=%s" % type(e).__name__)
 
-# ── 3. real research: quick mode, 1 iteration, SearXNG + coder-strong ────────
+# ── 3. real research: quick mode, 1 iteration, SearXNG + q38 ────────
 st, body = call("/api/start_research",
-                {"query": QUERY, "mode": "quick", "model": "coder-strong",
+                {"query": QUERY, "mode": "quick", "model": "q38",
                  "model_provider": "OPENAI_ENDPOINT",
                  "search_engine": "searxng", "iterations": 1,
                  "questions_per_iteration": 1},

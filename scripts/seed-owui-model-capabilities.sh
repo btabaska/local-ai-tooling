@@ -11,17 +11,18 @@
 # and a missing flag hides real vision (the mmproj-equipped lanes).
 #
 # Backend truth (llama-swap config):
-#   vision  : chat-vision (gemma4-31b-qat-vision + mmproj — Plant Scout's lane,
-#             split 2026-08-17), cydonia / dolphin-venice / goetia (shared
-#             Mistral mmproj, 2026-07-18)
-#   no vision: chat + rig-thinker (base=chat; gemma text lane since the
-#             2026-08-17 split — mmproj removed, ctx back to 65536),
-#             coder / code / coder-swarm / coder-strong (qwen3.6*), q38,
-#             chat-creative (deckard-heretic, no mmproj), fast, utility,
-#             rig-coder (base=coder; OWUI-deactivated 2026-08-17),
-#             chat-q38-trial / chat-gemma-26b-trial (2026-08-19 bake-off:
-#             text-only lanes — q38's VLM base and the 26B's vision tower are
-#             served WITHOUT mmproj; attach images via chat-vision only)
+#   vision  : chat-vision (gemma4-31b-heretic-vision + the heretic repo's own
+#             mmproj-BF16 — Plant Scout's lane; lane split 2026-08-17, model
+#             swapped to heretic at lai-30 2026-09-01), cydonia /
+#             dolphin-venice / goetia (shared Mistral mmproj, 2026-07-18)
+#   no vision: chat + rig-thinker (base=chat; heretic-31B text lane),
+#             chat-fast (HauhauCS-12B — ships an mmproj upstream but the lane
+#             is served text-only on purpose), q38 (Qwen3.8 VLM base served
+#             WITHOUT mmproj), chat-creative (deckard-heretic, no mmproj),
+#             utility. Attach images via chat-vision only.
+#   lai-30 removed entirely: coder / code / coder-swarm / coder-strong / fast
+#             (qwen3.6* + qwen2.5-coder), rig-coder, and the 2026-08-19 chat
+#             bake-off trials chat-q38-trial / chat-gemma-26b-trial.
 #
 # Run ON rig:  OWUI_API_KEY=<admin api key> bash scripts/seed-owui-model-capabilities.sh
 # Key source:  foss-setup vault ai_stack.openwebui_rag_sync_api_key (admin).
@@ -40,10 +41,12 @@ VISION = {
     "chat-vision": True,
     "cydonia": True, "dolphin-venice": True, "goetia": True,
     "chat": False, "rig-thinker": False,
-    "coder": False, "code": False, "coder-swarm": False, "coder-strong": False,
-    "q38": False, "chat-creative": False, "fast": False, "utility": False,
-    "rig-coder": False,
-    "chat-q38-trial": False, "chat-gemma-26b-trial": False,
+    # chat-fast (HauhauCS-12B) DOES ship an mmproj upstream, but the lane is
+    # served text-only on purpose (lai-30) — images still go to chat-vision.
+    # Flip this to True only if a -vision variant of the lane is ever added,
+    # or the frontend will embed image_url parts a blind server cannot read.
+    "chat-fast": False,
+    "q38": False, "chat-creative": False, "utility": False,
 }
 
 def api(method, path, body=None):

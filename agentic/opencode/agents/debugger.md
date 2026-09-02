@@ -1,7 +1,7 @@
 ---
 description: Investigates bugs and failures via reproduce → isolate → hypothesize → fix → verify. Can edit and run commands.
 mode: subagent
-model: litellm/coder
+model: litellm/q38
 temperature: 0.6
 permission:
   edit: allow

@@ -8,8 +8,8 @@ scoping the key; LiteLLM /v1/models for a scoped key returns only its allow-list
 so the models vanish from the OWUI selector without touching LiteLLM config
 (opencode's own key still reaches them).
 
-Allow-list = household/chat lanes + chat-vision (the 2026-08-17 gemma vision
-split, Plant Scout's base) + embed/rerank (OWUI RAG) + coder-swarm/q38 (kept
+Allow-list = household/chat lanes + chat-fast (lai-30) + chat-vision (the
+gemma vision split, Plant Scout's base) + embed/rerank (OWUI RAG) + q38 (kept
 per operator instruction — only the four named lanes were dropped; rig-coder is
 an OWUI preset handled by its own deactivation, not a gateway lane).
 
@@ -24,12 +24,10 @@ import sys
 import urllib.request
 
 ALLOW = [
-    "chat", "chat-vision", "chat-creative",
+    "chat", "chat-fast", "chat-vision", "chat-creative",
     "cydonia", "dolphin-venice", "goetia",
-    "fast", "utility", "embed", "rerank",
-    "coder-swarm", "q38",
-    # 2026-08-19 chat bake-off trials (drop with their aliases when it settles)
-    "chat-q38-trial", "chat-gemma-26b-trial",
+    "utility", "embed", "rerank",
+    "q38",
 ]
 
 sec = json.loads(sys.stdin.readline())

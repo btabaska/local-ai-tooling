@@ -21,61 +21,16 @@
         "chunkTimeout": 300000
       },
       "models": {
-        "coder": {
-          "name": "coder - Qwen3.6 35B-A3B MoE (default; 256k ctx)",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 262144,
-            "output": 8192
-          },
-          "interleaved": {
-            "field": "reasoning_content"
-          }
-        },
-        "coder-swarm": {
-          "name": "coder-swarm - Qwen3.6 35B-A3B, 4 parallel slots (49k/slot)",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 49152,
-            "output": 8192
-          },
-          "interleaved": {
-            "field": "reasoning_content"
-          }
-        },
-        "coder-strong": {
-          "name": "coder-strong - Qwen3.6 27B MTP (~50 t/s, 112k ctx)",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 114688,
-            "output": 8192
-          },
-          "interleaved": {
-            "field": "reasoning_content"
-          }
-        },
         "q38": {
-          "name": "q38 - Qwen3.8 27B MTP (trial; ~55 t/s, 112k ctx)",
+          "name": "q38 - Qwen3.8 27B MTP (sole coding/agentic lane)",
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 114688,
+            "context": 131072,
             "output": 8192
           },
           "interleaved": {
             "field": "reasoning_content"
-          }
-        },
-        "fast": {
-          "name": "fast - Qwen2.5-Coder 7B (quick/cheap)",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 32768,
-            "output": 4096
           }
         },
         "utility": {
@@ -100,55 +55,22 @@
         "chunkTimeout": 300000
       },
       "models": {
-        "qwen3.6-35b-a3b": {
-          "name": "DIRECT coder - Qwen3.6 35B-A3B MoE",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 262144,
-            "output": 8192
-          },
-          "interleaved": {
-            "field": "reasoning_content"
-          }
-        },
-        "qwen3.6-27b": {
-          "name": "DIRECT coder-strong - Qwen3.6 27B MTP",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 114688,
-            "output": 8192
-          },
-          "interleaved": {
-            "field": "reasoning_content"
-          }
-        },
         "qwen3.8-27b": {
-          "name": "DIRECT q38 - Qwen3.8 27B MTP (trial)",
+          "name": "DIRECT q38 - Qwen3.8 27B MTP",
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 114688,
+            "context": 131072,
             "output": 8192
           },
           "interleaved": {
             "field": "reasoning_content"
-          }
-        },
-        "qwen2.5-coder-7b": {
-          "name": "DIRECT fast - Qwen2.5-Coder 7B",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 32768,
-            "output": 4096
           }
         }
       }
     }
   },
-  "model": "litellm/coder",
+  "model": "litellm/q38",
   "small_model": "litellm/utility",
   "instructions": [
     "~/.config/opencode/AGENTS.md"
@@ -158,7 +80,7 @@
   "agent": {
     "build": {
       "mode": "primary",
-      "model": "litellm/coder",
+      "model": "litellm/q38",
       "temperature": 0.6,
       "top_p": 0.95,
       "permission": {
@@ -184,7 +106,7 @@
     },
     "plan": {
       "mode": "primary",
-      "model": "litellm/coder-strong",
+      "model": "litellm/q38",
       "temperature": 0.6,
       "top_p": 0.95,
       "permission": {

@@ -1,7 +1,7 @@
 ---
-description: Orca orchestration worker. Executes ONE dispatched task on the coder-swarm profile, verifies it, and reports completion via the Orca worker_done protocol. Use as the agent for opencode terminals that Orca dispatches to.
+description: Orca orchestration worker. Executes ONE dispatched task on the q38 lane, verifies it, and reports completion via the Orca worker_done protocol. Use as the agent for opencode terminals that Orca dispatches to.
 mode: primary
-model: litellm/coder-swarm
+model: litellm/q38
 temperature: 0.7
 top_p: 0.8
 permission:

@@ -6,9 +6,10 @@ plain chat, so nothing needs toggling per conversation. identify_plant stays
 off here — it is Plant Scout's pinned tool (seed-owui-plant-scout.py) and only
 makes sense with a photo attached.
 
-2026-08-19: extended from `chat` alone to the chat bake-off trials
-(chat-q38-trial / chat-gemma-26b-trial) so all three run the identical tool
-belt — remove them from MODELS when the bake-off settles.
+2026-09-01 (lai-30): the bake-off trial lanes are gone; MODELS is now
+`chat` (heretic-31B) + `chat-fast` (HauhauCS-12B). chat-fast carries the FULL
+belt by operator decision — the schemas cost a few k tokens of its 262144
+window, which it can afford far more easily than the 31B could.
 
 Pinning is via model.info.meta.toolIds — the FRONTEND merges the list into
 every chat request (Chat.svelte), same mechanism as Plant Scout. The ids are
@@ -71,7 +72,7 @@ def req(method, path, body=None):
         return None
 
 
-MODELS = ["chat", "chat-q38-trial", "chat-gemma-26b-trial"]
+MODELS = ["chat", "chat-fast"]
 
 for mid in MODELS:
     rec = req("GET", "/api/v1/models/model?id=" + mid)

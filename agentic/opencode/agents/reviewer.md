@@ -1,7 +1,7 @@
 ---
 description: Read-only multi-lens code reviewer (correctness, security, performance, architecture, simplicity). Never edits.
 mode: subagent
-model: litellm/coder
+model: litellm/q38
 temperature: 0.6
 permission:
   edit: deny

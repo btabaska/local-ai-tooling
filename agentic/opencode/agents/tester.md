@@ -1,7 +1,7 @@
 ---
 description: Writes and runs tests for a change. May edit test files and run the test suite; does not touch app code.
 mode: subagent
-model: litellm/coder
+model: litellm/q38
 temperature: 0.6
 permission:
   edit: allow

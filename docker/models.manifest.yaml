@@ -39,97 +39,18 @@ meta:
     17: Q5_K_M
     25: IQ4_NL
   notes:
-    - "Total served weights ~131 GB across 12 GGUFs (10 chat/code/creative + 1 shared vision projector + 1 reranker). qwen3-coder-30b + devstral-24b retired 2026-07-29 → archive/ (~30 GB)."
-    - "2026-08-19: +gemma4-26b-a4b.gguf (15.84 GiB, non-QAT UD-Q4_K_XL) for the 3-way chat bake-off → ~147 GB / 13 GGUFs (QAT variant parked in archive/, see archived:)."
+    - "2026-09-01 (lai-30) ROSTER COLLAPSE: ~119 GB across 14 GGUFs. Exactly one Qwen chat/code model (qwen3.8-27b ISTA IQ3_S+MTP) plus the retrieval pair (qwen3-embed + qwen3-reranker); exactly two Gemmas (heretic-31B for chat/chat-vision, HauhauCS-12B for chat-fast); the 3 Mistral creative/RP models and llama3.2-3b unchanged. Deleted 153.76 GiB across 12 files: the qwen3.6 pair, qwen2.5-coder-7b, the old superseded qwen3.8-27b, gemma4-31b-qat + its mmproj, gemma4-26b-a4b, the bake-off loser, and 3 archive/ qwen+gemma files. NOTE: btrfs did not reclaim the space - 51 snapper snapshots still pin the extents."
     - "One big model is resident at a time (llama-swap `big` group, exclusive+swap); the embedder + reranker are CPU-pinned (embed group). See rig-gpu-vram-contention."
 
 # ── Served GGUFs (each is a `--model` in llama-swap-config.yaml) ──────────────
 served:
 
-  # ---- Coding / agentic ----
-  - file: Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
-    llama_swap_model: qwen3.6-35b-a3b
-    litellm_alias: [coder, code]          # bake-off winner (2026-07-15)
-    role: coding/agentic (MoE, default coder)
-    quant: UD-IQ4_NL_XL           # unsloth dynamic; header file_type 25 = IQ4_NL
-    size_bytes: 19500506080       # ~18.16 GiB
-    sha256: 071ee2a008ec51372f990d8efbea92ec9dd0137974110ef68fbfde429c8c6dd4
-    source:
-      repo: unsloth/Qwen3.6-35B-A3B-GGUF
-      file: Qwen3.6-35B-A3B-UD-IQ4_NL_XL.gguf
-      base_model: Qwen/Qwen3.6-35B-A3B
-      quantized_by: Unsloth
-      confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; filename preserved
 
-  - file: Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf
-    llama_swap_model: qwen3.6-27b
-    litellm_alias: [coder-strong]
-    role: coding/agentic (dense, MTP spec-decode ~50 t/s, long/hard runs)
-    quant: UD-Q4_K_XL             # unsloth dynamic (MTP build); header file_type 15
-    size_bytes: 17909097600       # ~16.68 GiB
-    sha256: 4085665ee36d82a672a238a43f0e5643f2f0e39f2d7bd5d373f0ef10ecf53095
-    source:
-      repo: unsloth/Qwen3.6-27B-GGUF
-      file: Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf   # MTP self-speculative variant
-      base_model: Qwen/Qwen3.6-27B
-      quantized_by: Unsloth
-      confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; filename preserved
 
-  - file: qwen3.8-27b.gguf
-    llama_swap_model: qwen3.8-27b
-    litellm_alias: [q38, chat-q38-trial]   # chat-q38-trial = 2026-08-19 chat bake-off
-    role: coding/agentic trial (dense VLM text-only, MTP spec-decode ~55 t/s) + chat bake-off
-    quant: UD-Q4_K_XL             # unsloth dynamic; carries MTP head (blk.64.nextn.* observed at load)
-    size_bytes: 17923394624       # ~16.69 GiB
-    sha256: bee238bbeb3dc0a34bde4d0dedbaee1f98c009e8bb4226f03070054c12fb1372
-    source:
-      repo: unsloth/Qwen3.8-27B-GGUF
-      file: Qwen3.8-27B-UD-Q4_K_XL.gguf   # renamed on disk at download (2026-08-15)
-      base_model: Qwen/Qwen3.8-27B
-      quantized_by: Unsloth
-      confidence: inferred   # renamed on disk; size matches the repo's UD-Q4_K_XL (17.92 GB); match sha256 on re-download
 
   # (qwen3-coder-30b + devstral-24b retired 2026-07-29 — moved to `archived:` below.)
 
-  # ---- Chat ----
-  - file: gemma4-31b-qat.gguf
-    llama_swap_model: gemma4-31b-qat
-    litellm_alias: [chat]
-    role: general chat (default)
-    quant: Q4_0 (QAT)             # header file_type 2 = Q4_0; QAT-lossless
-    size_bytes: 17287668064       # ~16.10 GiB
-    sha256: 9188a71055550f1e60b875d02b7abb63625ac11b4a6f148d6b22b3b28ba3d335
-    source:
-      repo: unsloth/gemma-4-31b-it-qat-GGUF
-      file: gemma-4-31b-it-qat-Q4_0.gguf   # confirm by sha256/size (renamed on disk)
-      base_model: google/gemma-4-31B-it
-      quantized_by: unsloth
-      confidence: inferred   # quantized_by=unsloth verified; exact repo/file inferred
 
-  # 2026-08-19 chat bake-off trial (vs chat/gemma4-31b-qat + chat-q38-trial).
-  # NON-QAT quant ON PURPOSE: unlike the 31B (QAT tested lossless), the 26B QAT
-  # has an open upstream quality dispute (unsloth qat repo discussion #3 —
-  # scores below plain IQ4_XS, typos/instruction-following complaints,
-  # unresolved as of 2026-08-19); a disputed quant would poison a quality
-  # bake-off. The QAT file is kept in archive/ as an A/B challenger (below).
-  # Upstream repo also ships mmproj-F16.gguf (1.19 GB vision tower) and an MTP
-  # draft head (mtp-gemma-4-26B-A4B-it.gguf, 462 MB) — neither downloaded; the
-  # lane is text-only (images go via chat-vision), MTP untested on this MoE.
-  # Repo re-uploaded 2026-07-17 with Google's fixed chat template (tool-call
-  # role:tool forward-scan + thinking ordering) — do not reuse pre-July files.
-  - file: gemma4-26b-a4b.gguf
-    llama_swap_model: gemma4-26b-a4b
-    litellm_alias: [chat-gemma-26b-trial]
-    role: general chat trial (Gemma 4 MoE, ~4B active, text-only)
-    quant: UD-Q4_K_XL             # unsloth dynamic quant (non-QAT — see note above)
-    size_bytes: 17010980576       # ~15.84 GiB
-    sha256: ef728c8e0c337fd1067b947af006e38a9ef2419e56feced4fd29b4bf0636e30c
-    source:
-      repo: unsloth/gemma-4-26B-A4B-it-GGUF
-      file: gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf   # renamed on disk at download (2026-08-19)
-      base_model: google/gemma-4-26B-A4B-it
-      quantized_by: Unsloth
-      confidence: verified   # sha256 == HF LFS oid (checked against the repo tree API, 2026-08-19)
 
   - file: deckard-heretic.gguf
     llama_swap_model: deckard-heretic
@@ -209,35 +130,7 @@ served:
       quantized_by: Unsloth
       confidence: verified   # general.quantized_by=Unsloth, repo_url=unsloth; unsloth mmproj-F16
 
-  # ---- Vision projector for the chat lane (gemma4-31b-qat, wired 2026-08-16) ----
-  - file: mmproj-gemma-4-31b-qat-f16.gguf
-    llama_swap_model: null        # not a standalone model; --mmproj for gemma4-31b-qat
-    litellm_alias: []
-    role: vision/mmproj tower (Gemma-4-31B QAT) for the chat lane; ctx trimmed 65536->57344 to fit it
-    quant: F16
-    size_bytes: 1198957024        # ~1.12 GiB
-    sha256: 4775e1bf6ef6f8df94caed2d672c74432f0722565e5225a170c72949ebe4cf23
-    source:
-      repo: unsloth/gemma-4-31B-it-qat-GGUF
-      file: mmproj-F16.gguf
-      base_model: google/gemma-4-31b-it-qat
-      quantized_by: Unsloth
-      confidence: verified   # sha256 == HF LFS oid, fetched 2026-08-16
 
-  # ---- Small / utility ----
-  - file: qwen2.5-coder-7b.gguf
-    llama_swap_model: qwen2.5-coder-7b
-    litellm_alias: [fast]
-    role: autocomplete / cheap tool loop / ops-agent inner loop
-    quant: Q4_K_M                 # header file_type 15
-    size_bytes: 4683074336        # ~4.36 GiB
-    sha256: 1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6
-    source:
-      repo: Qwen/Qwen2.5-Coder-7B-Instruct-GGUF
-      file: qwen2.5-coder-7b-instruct-q4_k_m.gguf   # confirm by sha256/size (renamed on disk)
-      base_model: Qwen/Qwen2.5-Coder-7B-Instruct
-      quantized_by: Qwen (official GGUF) — verify vs bartowski
-      confidence: inferred   # no quantized_by/repo_url in header; Qwen official GGUF is best match
 
   - file: llama3.2-3b.gguf
     llama_swap_model: fast-3b
@@ -289,6 +182,110 @@ served:
 # ── Ollama shim models (Ollama's OWN store, NOT /opt/llm/models) ─────────────
 # Demoted to a 3-model compat shim on :11434 for HA Assist + Obsidian only
 # (see README + scripts/03-model-variants.sh). Rebuild path = ollama pull/create.
+
+  # ---- Coding / agentic (lai-30, 2026-09-01) ----
+  # Sole Qwen on the box besides the retrieval pair. Won the 2026-09-01 quant
+  # bake-off against unsloth UD-Q4_K_XL v3.0 on a 20-card hard subset of the
+  # round3 eval set: on the 11 cards BOTH answered cleanly the two were level
+  # (0.900 vs 0.858 mean checklist, 3-2-6 win/loss/tie) - i.e. IQ3_S showed no
+  # detectable quality loss - while ISTA took 2 timeouts to v3's 5 and needs
+  # 5 GiB less card. MEASURED MTP ctx ceiling 245760 @ q8_0 KV (23.3G peak).
+  - file: qwen3.8-27b-ista-iq3s-mtp.gguf
+    llama_swap_model: qwen3.8-27b
+    litellm_alias: [q38]
+    role: coding/agentic + general reasoning (sole Qwen lane)
+    quant: IQ3_S + MTP head    # GSQ-RCO gradient-based per-tensor precision
+    size_bytes: 12120016960       # ~11.29 GiB
+    sha256: 58fd826723939933dc86f45b7fe04545cbc2de1c70f6fe2cdd3858c87a98c12f
+    source:
+      repo: ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF
+      file: Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf
+      base_model: Qwen/Qwen3.8-27B
+      quantized_by: ISTA-DASLab
+      confidence: verified   # sha256 == HF LFS oid (checked via the repo tree API, 2026-09-01)
+
+  # ---- Chat (lai-30) ----
+  # Operator decision 2026-09-01: exactly two Gemmas, both uncensored.
+  # Q4_K_S over Q4_K_M deliberately - K_M costs ~one 8k ctx rung for a marginal
+  # quality gain, and max context was the stated priority. MEASURED: text lane
+  # 65536 (identical to the retired gemma4-31b-qat, so the swap cost no ctx);
+  # vision lane 40960 - one rung BELOW the old lane, because these weights are
+  # ~0.4 GiB larger and that is exactly the room the CLIP graph buffer needed.
+  - file: gemma4-31b-heretic-q4ks.gguf
+    llama_swap_model: gemma4-31b-heretic        # + gemma4-31b-heretic-vision
+    litellm_alias: [chat, chat-vision]
+    role: general chat (uncensored) + vision base for Plant Scout
+    quant: Q4_K_S
+    size_bytes: 17763165312       # ~16.54 GiB
+    sha256: 4f6feaf69a3c9703bc74a5431900bb5af961a335d5c43f0aceb2ecba78a15975
+    source:
+      repo: llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF
+      file: gemma-4-31B-it-uncensored-heretic-Q4_K_S.gguf
+      base_model: google/gemma-4-31b-it
+      confidence: verified   # sha256 == HF LFS oid (2026-09-01)
+
+  # Vision tower for the lane above. MUST be this repo's own mmproj - the
+  # retired unsloth qat mmproj was deleted with its model.
+  - file: mmproj-gemma4-31b-heretic-bf16.gguf
+    llama_swap_model: gemma4-31b-heretic-vision
+    litellm_alias: [chat-vision]
+    role: multimodal projector (BF16) for the heretic 31B
+    quant: BF16
+    size_bytes: 1200726208        # ~1.12 GiB
+    sha256: 21487ff26d08f7ddd1d654d3bbfc1ae1020aab3119f5bf654742ce4697732e4e
+    source:
+      repo: llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF
+      file: gemma-4-31B-it-mmproj-BF16.gguf
+      confidence: verified   # sha256 == HF LFS oid (2026-09-01)
+
+  # chat-fast: the roomiest lane on the rig. Loads at 12.5 GiB peak WITH its
+  # MTP drafter at the FULL native 262144 ctx, leaving ~11.7 GiB of card free
+  # for non-LLM work - which was an explicit operator constraint.
+  - file: gemma4-12b-hauhau-q4km.gguf
+    llama_swap_model: gemma4-12b-hauhau
+    litellm_alias: [chat-fast]
+    role: fast chat (uncensored, QAT, 256k ctx)
+    quant: Q4_K_M              # the card's stated sweet spot (Gemma 4 is QAT'd ~4-bit)
+    size_bytes: 7381381760        # ~6.87 GiB
+    sha256: 59656d7494d6376ca97e9e20b64ea2e16cd97f12ec6d47bfccba91cb785b5134
+    source:
+      repo: HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced
+      file: Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf
+      base_model: google/gemma-4-12b-it
+      confidence: verified   # sha256 == HF LFS oid (2026-09-01)
+
+  # Separate MTP drafter for the lane above (--spec-draft-model, NOT the
+  # embedded-nextn form the Qwen lane uses). Built from base gemma-4-12B-it
+  # while the weights are the finetune: same architecture, so drafts are valid;
+  # acceptance may sit slightly below a matched drafter.
+  - file: mtp-gemma4-12b-it.gguf
+    llama_swap_model: gemma4-12b-hauhau
+    litellm_alias: [chat-fast]
+    role: MTP speculative drafter for chat-fast
+    quant: MTP head
+    size_bytes: 253707328         # ~0.24 GiB
+    sha256: c50c91c35f04903815b2e8930cbb8c8c5bee0e1aa00748c30a7b8ff05d2310b4
+    source:
+      repo: HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced
+      file: mtp-gemma-4-12B-it.gguf
+      confidence: verified   # sha256 == HF LFS oid (2026-09-01)
+
+  # Downloaded but DELIBERATELY NOT SERVED: chat-fast runs text-only so images
+  # stay on chat-vision (seed-owui-model-capabilities.sh keeps its vision flag
+  # false to match). Kept because it is small and enables a -vision variant of
+  # the 12B lane later without a re-download.
+  - file: mmproj-gemma4-12b-hauhau-bf16.gguf
+    llama_swap_model: null        # not wired into any lane
+    litellm_alias: []
+    role: unused multimodal projector for the 12B (future option)
+    quant: BF16
+    size_bytes: 175115264         # ~0.16 GiB
+    sha256: b59e815479b7e5f0665bd29e6784c104a368092bcbc63120148c606f9276ab8e
+    source:
+      repo: HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced
+      file: mmproj-Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-BF16.gguf
+      confidence: verified   # sha256 == HF LFS oid (2026-09-01)
+
 ollama_shim:
   store: ~/.ollama (Ollama-managed blobs; not in /opt/llm/models, not in restic)
   models:
@@ -309,14 +306,6 @@ ollama_shim:
 # ── Archived / superseded weights (present on disk, NOT served) ──────────────
 # In /opt/llm/models/archive/ — kept for rollback, referenced by NO config.
 archived:
-  - file: archive/qwen3-coder-30b.gguf
-    size_bytes: 17665334432       # ~16.45 GiB
-    sha256: 2841aa314d916434860cfb8990347528dcdfe5c350dbcb9d1461dbee88ff2533
-    note: >
-      retired 2026-07-29 (ai-08): served by llama-swap but had NO LiteLLM alias
-      (gateway-unreachable); redundant with coder=qwen3.6-35b-a3b (bake-off winner).
-      Restore source: unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF ::
-      Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf (match by sha256).
   - file: archive/devstral-24b.gguf
     size_bytes: 14548874304       # ~13.55 GiB
     sha256: d8d48447e4de4c6ffab551d77c48d0898b50ea5d2b7f71ebf48332a7cb58c9a6
@@ -324,24 +313,10 @@ archived:
       retired 2026-07-29 (ai-08): served but NO LiteLLM alias (gateway-unreachable).
       Restore source: unsloth/Devstral-Small-2505-GGUF ::
       Devstral-Small-2505-UD-Q4_K_XL.gguf (match by sha256).
-  - file: archive/Qwen3.6-27B-UD-Q4_K_XL.gguf
-    size_bytes: 17612564704       # ~16.40 GiB
-    sha256: ff6941ded525b34eb159496762c29dd0ec6e71dc31b74d57e75d871a03eec259
-    note: pre-MTP 27B dense; superseded 2026-07-16 by Qwen3.6-27B-MTP-UD-Q4_K_XL.gguf
   - file: archive/nomic-embed-text.gguf
     size_bytes: 84106624          # ~0.078 GiB
     sha256: d4e388894e09cf3816e8b0896d81d265b55e7a9fff9ab03fe8bf4ef5e11295ac
     note: pre-Qwen3 embedder; replaced 2026-07-15 by Qwen3-Embedding-0.6B (2048-ctx too small for wiki chunks)
-  - file: archive/gemma4-26b-a4b-qat.gguf
-    size_bytes: 14249047104       # ~13.27 GiB
-    sha256: a7c5bc715f5ff8e99a3e8901ce7d2b42b402c669bf24f7c5250747633d0f5891
-    note: >
-      downloaded 2026-08-19, NEVER served: QAT quant of the 26B-A4B chat-trial
-      model, parked pending an A/B vs the served non-QAT UD-Q4_K_XL because of
-      the open upstream quality dispute (unsloth gemma-4-26B-A4B-it-qat-GGUF
-      discussion #3). Source: unsloth/gemma-4-26B-A4B-it-qat-GGUF ::
-      gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf (match by sha256). Delete if the
-      26B loses the chat bake-off outright.
 
 # ── Restore ──────────────────────────────────────────────────────────────────
 restore:

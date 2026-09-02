@@ -11,8 +11,9 @@ belt on the OpenAI/LiteLLM path). The archive-lookup paragraph (added later
 term-dropping, search-then-READ discipline, and no-memory-as-archive honesty.
 
 The prompt is deliberately MODEL-AGNOSTIC (no Gemma/Qwen control tokens) so
-the 3-way chat bake-off — chat (gemma4-31b) vs chat-q38-trial (qwen3.8-27b)
-vs chat-gemma-26b-trial (gemma4-26b-a4b) — differs only in the model.
+the chat lanes differ only in the model. The 2026-08-19 3-way bake-off ended at
+lai-30 (2026-09-01): the trial lanes are gone and the roster is `chat`
+(heretic-31B) + `chat-fast` (HauhauCS-12B).
 {{CURRENT_DATE}} is an OWUI prompt variable, substituted server-side per chat.
 
 Field ownership (read-modify-write like its siblings): this script REPLACES
@@ -48,25 +49,24 @@ Honesty and style: plain, direct prose. Structure long answers with headings or 
 # Sampler per HF model card; num_ctx mirrors the llama-swap lane ctx (keep in
 # sync with docker/llama-swap-config.yaml when a lane's measured fit changes).
 PARAMS = {
-    # gemma4-31b-qat text lane (65536 since the 2026-08-17 vision split; the
-    # stale 73728 predated it)
+    # `chat` = gemma4-31b-heretic text lane. MEASURED ceiling 2026-09-01 is
+    # 65536 - identical to the gemma4-31b-qat lane it replaced at lai-30, so
+    # this number did not move. Gemma 4 official sampler.
     "chat": {
         "system": SYSTEM, "function_calling": "native",
         "temperature": 1.0, "top_p": 0.95, "top_k": 64, "min_p": 0,
         "num_ctx": 65536, "max_tokens": 32768,
     },
-    # qwen3.8-27b lane (ctx 114688 + MTP; --reasoning-effort medium baked
-    # server-side). Qwen 3.8-gen thinking sampler: temp 1.0 / top_k 20.
-    "chat-q38-trial": {
+    # `chat-fast` = HauhauCS gemma4-12b QAT + its MTP drafter. num_ctx is the
+    # full NATIVE 262144 (measured: loads at 12.5 GiB, 11.7 GiB card free) -
+    # by far the roomiest lane on the rig. Sampler per the HauhauCS card
+    # (temp 0.6 / top_k 64 / top_p 0.9 / min_p 0.05), which differs from the
+    # Gemma-org defaults the 31B uses; the lane bakes repeat_penalty 1.1
+    # server-side. Carries the same pinned tool belt as `chat` (lai-30).
+    "chat-fast": {
         "system": SYSTEM, "function_calling": "native",
-        "temperature": 1.0, "top_p": 0.95, "top_k": 20, "min_p": 0,
-        "num_ctx": 114688, "max_tokens": 32768,
-    },
-    # gemma4-26b-a4b MoE lane (Gemma 4 family sampler, same as 31B).
-    "chat-gemma-26b-trial": {
-        "system": SYSTEM, "function_calling": "native",
-        "temperature": 1.0, "top_p": 0.95, "top_k": 64, "min_p": 0,
-        "num_ctx": 65536, "max_tokens": 32768,
+        "temperature": 0.6, "top_p": 0.9, "top_k": 64, "min_p": 0.05,
+        "num_ctx": 262144, "max_tokens": 32768,
     },
 }
 

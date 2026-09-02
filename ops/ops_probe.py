@@ -11,7 +11,7 @@ is read-only by construction.
 
 Usage:
   /opt/llm/fleet-venv/bin/python ops_probe.py "why is foo.service down on the rig?"
-Env: LITELLM_API_KEY (or --api-key), OPS_MODEL (default coder), OPS_BASE.
+Env: LITELLM_API_KEY (or --api-key), OPS_MODEL (default q38), OPS_BASE.
 """
 import argparse
 import asyncio
@@ -83,7 +83,7 @@ async def run(args):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("question")
-    ap.add_argument("--model", default=os.environ.get("OPS_MODEL", "coder"))
+    ap.add_argument("--model", default=os.environ.get("OPS_MODEL", "q38"))
     ap.add_argument("--base", default=os.environ.get("OPS_BASE", "http://localhost:4000/v1"))
     ap.add_argument("--api-key", default=os.environ.get("LITELLM_API_KEY", "none"))
     ap.add_argument("--mcp-url", default="http://localhost:8765/mcp")

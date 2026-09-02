@@ -56,9 +56,13 @@ exported as `LITELLM_API_KEY`:
   — backfilled into the vault by lai-05; the Mac exports the same key from `~/.zshenv`).
 - `~/.bashrc` **and** `~/.bash_profile` export `LITELLM_API_KEY` from that value — both,
   because `~/.bashrc` early-returns for non-interactive shells while Orca spawns agents
-  through `~/.bash_profile`. pi's `auth.json` (`$LITELLM_API_KEY`) and opencode's
-  `{env:LITELLM_API_KEY}` both consume it.
-- Mint: `curl .../key/generate -d '{"models":["coder","coder-strong","fast","utility"],...}'`.
+  through `~/.bash_profile`. opencode's `{env:LITELLM_API_KEY}` consumes it.
+  **pi does NOT** — corrected 2026-09-02 (lai-30): pi interpolates nothing in
+  `auth.json` (nor in `models.json`'s `apiKey`), it sends the string verbatim, so the
+  old `$LITELLM_API_KEY` literal made pi 401 against the gateway from 2026-07-29
+  until it was replaced with the real key. Write the real key at 0600.
+- Mint: `curl .../key/generate -d '{"models":["q38","utility"],...}'` — the lai-30 roster;
+  coder/coder-strong/coder-swarm/fast no longer exist.
 
 ## Orca (Stably) — the orchestrator
 

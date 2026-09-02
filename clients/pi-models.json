@@ -1,5 +1,5 @@
 {
-  "_comment": "pi.dev (@earendil-works/pi-coding-agent) custom-provider catalog for the rig's LiteLLM coder stack. Deploy to ~/.pi/agent/models.json. Validated on pi 0.82.x (ai-09). models.json is credential-blind: the real key lives in ~/.pi/agent/auth.json (see pi-auth.example.json), resolved from $LITELLM_API_KEY. compat.supportsDeveloperRole/supportsReasoningEffort=false is REQUIRED for llama.cpp-style OpenAI servers (pi docs/models.md) or reasoning-model requests error.",
+  "_comment": "pi.dev (@earendil-works/pi-coding-agent) custom-provider catalog for the rig's LiteLLM stack. Deploy to ~/.pi/agent/models.json. Validated on pi 0.82.x (ai-09). models.json is credential-blind: the key lives in ~/.pi/agent/auth.json (see pi-auth.example.json). compat.supportsDeveloperRole/supportsReasoningEffort=false is REQUIRED for llama.cpp-style OpenAI servers (pi docs/models.md) or reasoning-model requests error. UPDATED 2026-09-02 (lai-30): the roster collapsed to a single Qwen coding lane - coder/coder-strong/coder-swarm/fast were DELETED, so only q38 + utility remain. That pair is also exactly what the coding-agents virtual key is scoped to, so declaring anything else here would 403.",
   "providers": {
     "litellm": {
       "baseUrl": "https://llm.tabaska.us/v1",
@@ -11,32 +11,11 @@
       },
       "models": [
         {
-          "id": "coder",
-          "name": "coder - Qwen3.6 35B-A3B MoE (default coder)",
+          "id": "q38",
+          "name": "q38 - Qwen3.8 27B ISTA IQ3_S MTP (sole coding lane, 245k ctx)",
           "reasoning": true,
-          "contextWindow": 131072,
+          "contextWindow": 245760,
           "maxTokens": 8192
-        },
-        {
-          "id": "coder-swarm",
-          "name": "coder-swarm - Qwen3.6 35B-A3B, 4 parallel slots (49k/slot)",
-          "reasoning": true,
-          "contextWindow": 49152,
-          "maxTokens": 8192
-        },
-        {
-          "id": "coder-strong",
-          "name": "coder-strong - Qwen3.6 27B MTP (long/hard)",
-          "reasoning": true,
-          "contextWindow": 98304,
-          "maxTokens": 8192
-        },
-        {
-          "id": "fast",
-          "name": "fast - Qwen2.5-Coder 7B (quick/cheap)",
-          "reasoning": false,
-          "contextWindow": 32768,
-          "maxTokens": 4096
         },
         {
           "id": "utility",

@@ -1,0 +1,107 @@
+{
+ "model": "litellm/q38-v3",
+ "agent": "evalplan",
+ "cards": "/Users/brandontabaska/GitHub/local-ai-tooling/evals/datasets/round3-2026-08-14/cards.public.bake-lai30.jsonl",
+ "attempts": [
+  {
+   "task_id": "diag-004",
+   "status": "timeout",
+   "duration_s": 900.1
+  },
+  {
+   "task_id": "diag-005",
+   "status": "ok",
+   "duration_s": 541.6
+  },
+  {
+   "task_id": "diag-006",
+   "status": "ok",
+   "duration_s": 786.6
+  },
+  {
+   "task_id": "diag-009",
+   "status": "ok",
+   "duration_s": 692.5
+  },
+  {
+   "task_id": "diag-105",
+   "status": "ok",
+   "duration_s": 361.1
+  },
+  {
+   "task_id": "diag-110",
+   "status": "ok",
+   "duration_s": 491.4
+  },
+  {
+   "task_id": "diag-111",
+   "status": "ok",
+   "duration_s": 456.5
+  },
+  {
+   "task_id": "diag-003",
+   "status": "ok",
+   "duration_s": 424.7
+  },
+  {
+   "task_id": "diag-007",
+   "status": "ok",
+   "duration_s": 590.2
+  },
+  {
+   "task_id": "diag-010",
+   "status": "timeout",
+   "duration_s": 900.1
+  },
+  {
+   "task_id": "diag-011",
+   "status": "ok",
+   "duration_s": 390.6
+  },
+  {
+   "task_id": "diag-101",
+   "status": "ok",
+   "duration_s": 666.7
+  },
+  {
+   "task_id": "ops-004",
+   "status": "timeout",
+   "duration_s": 900.0
+  },
+  {
+   "task_id": "ops-008",
+   "status": "timeout",
+   "duration_s": 900.0
+  },
+  {
+   "task_id": "ops-002",
+   "status": "ok",
+   "duration_s": 767.7
+  },
+  {
+   "task_id": "ops-003",
+   "status": "timeout",
+   "duration_s": 900.1
+  },
+  {
+   "task_id": "ops-006",
+   "status": "ok",
+   "duration_s": 389.0
+  },
+  {
+   "task_id": "ops-101",
+   "status": "ok",
+   "duration_s": 556.5
+  },
+  {
+   "task_id": "verify-003",
+   "status": "ok",
+   "duration_s": 240.0
+  },
+  {
+   "task_id": "verify-004",
+   "status": "ok",
+   "duration_s": 351.6
+  }
+ ]
+}

@@ -13,39 +13,6 @@
         "chunkTimeout": 300000
       },
       "models": {
-        "coder": {
-          "name": "coder - Qwen3.6 35B-A3B MoE (256k ctx)",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 262144,
-            "output": 16384
-          },
-          "interleaved": {
-            "field": "reasoning_content"
-          }
-        },
-        "coder-strong": {
-          "name": "coder-strong - Qwen3.6 27B MTP (112k ctx)",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 114688,
-            "output": 16384
-          },
-          "interleaved": {
-            "field": "reasoning_content"
-          }
-        },
-        "fast": {
-          "name": "fast - Qwen2.5-Coder 7B",
-          "tool_call": true,
-          "temperature": true,
-          "limit": {
-            "context": 32768,
-            "output": 4096
-          }
-        },
         "utility": {
           "name": "utility - Llama3.2 3B",
           "tool_call": false,
@@ -65,15 +32,24 @@
           }
         },
         "q38": {
-          "name": "q38 - Qwen3.8 27B trial (98k ctx)",
+          "name": "q38 - Qwen3.8 27B ISTA IQ3_S MTP (245760 ctx)",
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 98304,
+            "context": 245760,
             "output": 16384
           },
           "interleaved": {
             "field": "reasoning_content"
+          }
+        },
+        "chat-fast": {
+          "name": "chat-fast - Gemma4 12B QAT uncensored (262144 ctx)",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 262144,
+            "output": 8192
           }
         }
       }
@@ -109,5 +85,6 @@
       "url": "http://cachyos.tailb31641.ts.net:8765/mcp",
       "timeout": 15000
     }
-  }
+  },
+  "_lai30_note": "eval agent read tools reached evals/datasets during the 2026-09-01 bake and 4 runs were contamination-auto-failed; the workdir should exclude this repo path. Tracked as a follow-up."
 }

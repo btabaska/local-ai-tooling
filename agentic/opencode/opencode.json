@@ -26,7 +26,7 @@
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 131072,
+            "context": 245760,
             "output": 8192
           },
           "interleaved": {
@@ -60,7 +60,7 @@
           "tool_call": true,
           "temperature": true,
           "limit": {
-            "context": 131072,
+            "context": 245760,
             "output": 8192
           },
           "interleaved": {

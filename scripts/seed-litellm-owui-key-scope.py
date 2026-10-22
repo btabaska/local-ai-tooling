@@ -28,6 +28,7 @@ ALLOW = [
     "cydonia", "dolphin-venice", "goetia",
     "utility", "embed", "rerank",
     "q38",
+    "strata",   # Qwen3.8-Flash-Next via Strata (operator request 2026-10-22)
 ]
 
 sec = json.loads(sys.stdin.readline())

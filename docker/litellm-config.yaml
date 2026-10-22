@@ -25,6 +25,18 @@ model_list:
       api_base: http://llama-swap:8080/v1
       api_key: none
 
+  # Qwen3.8-Flash-Next 125B-A6B (ISTA GSQ-RCO IQ3_S) on the Strata engine
+  # (2026-10-22). Routed through llama-swap so the card stays single-owner
+  # (the llama-swap "strata" entry is a load/unload shim). Unlike every other
+  # lane, the upstream REQUIRES a key: llama-swap forwards Authorization, so
+  # this alias sends STRATA_API_KEY (vault ai_stack.strata_api_key).
+  # Cold load 1-3 min; Strata answers one request at a time.
+  - model_name: strata
+    litellm_params:
+      model: openai/strata
+      api_base: http://llama-swap:8080/v1
+      api_key: os.environ/STRATA_API_KEY
+
 
 
   # ---- General chat (default) ----

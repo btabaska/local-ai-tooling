@@ -49,7 +49,7 @@ Client configs that point local coding agents at the rig's **LiteLLM** gateway
 
 ## The key (ai-09)
 
-All three read a LiteLLM **virtual key scoped to coder/coder-strong/coder-swarm/fast/utility**,
+All three read a LiteLLM **virtual key (`coding-agents`) scoped to q38/utility/strata** (lai-30 collapse; `strata` added 2026-10-22),
 exported as `LITELLM_API_KEY`:
 
 - `docker/.env` → `CODING_LITELLM_KEY` (canonical on-rig source; vault `ai_stack.litellm_coding_key`

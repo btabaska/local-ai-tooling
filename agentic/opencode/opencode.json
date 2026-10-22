@@ -33,6 +33,18 @@
             "field": "reasoning_content"
           }
         },
+        "strata": {
+          "name": "strata - Qwen3.8-Flash-Next 125B-A6B IQ3_S (Strata, GPU+RAM, 128K)",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          },
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
         "utility": {
           "name": "utility - Llama3.2 3B (titles/tags)",
           "tool_call": false,

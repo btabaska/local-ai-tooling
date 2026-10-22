@@ -55,6 +55,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@litellm-db:5432/${POSTGRES_DB}
+      STRATA_API_KEY: ${STRATA_API_KEY}   # strata alias -> llama-swap -> strata (2026-10-22)
     volumes:
       - ./litellm-config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml"]
@@ -246,6 +247,49 @@ services:
     volumes:
       - ./llama-swap-config.yaml:/app/config.yaml:ro
       - /opt/llm/models:/models:ro
+    environment:
+      # Strata lane shim (2026-10-22): the strata entry in llama-swap-config.yaml
+      # POSTs /load + /unload to the strata container with this key.
+      STRATA_API_KEY: ${STRATA_API_KEY}
+
+  # ---- Strata: Qwen3.8-Flash-Next (125B MoE, ~6B active) on GPU+RAM (2026-10-22) ----
+  # github.com/Niko1221/Strata v0.2.2 (MIT) - expert-tiering engine: hot experts in
+  # VRAM, the rest in RAM, the 29 GB n-gram lookup shard memory-mapped from NVMe.
+  # Model = ISTA-DASLab Qwen3.8-Flash-Next-GSQ-RCO IQ3_S (84 GB).
+  # GPU ownership is llama-swap's: the "strata" entry in llama-swap-config.yaml is
+  # a load/unload shim in the exclusive "big" group, so requesting strata evicts
+  # q38/chat and vice versa. The server runs lazy (lazy_load in its run config),
+  # so this container idles with NO VRAM until llama-swap POSTs /load.
+  # Data lives in its own btrfs subvolume /opt/llm/strata (outside the snapper
+  # root snapshots, so a later delete really frees the space).
+  # Prebuilt image pinned by digest - re-resolve + bump to update.
+  strata:
+    image: ghcr.io/niko1221/strata:0.2.2-cuda13@sha256:17e96f76fb85ee47b445b38ebfe9e4190b96ebde522e109d40efa2f2404a4503
+    container_name: strata
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8080"   # debug only; clients go through llama-swap / LiteLLM
+    devices:
+      - nvidia.com/gpu=all
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    shm_size: "2g"
+    stop_grace_period: 2m
+    environment:
+      MODEL: IQ3_S
+      FAMILY: qwen
+      CONTEXT: 128k
+      VISION: "off"
+      KV: int8
+      PARALLEL: "1"
+      TUNE: skip
+      API_KEY: ${STRATA_API_KEY}
+      # llama-swap reaches us as http://strata:8080 (Host header "strata")
+      STRATA_ALLOWED_HOSTS: strata,llama-swap,localhost
+    volumes:
+      - /opt/llm/strata:/data
 
   # ---- Lumiverse: creative/RP chat frontend (added 2026-07-18) -----------------
   # Self-hosted AI roleplay UI (prolix-oc/Lumiverse, TS+Bun). Rides LiteLLM like OWUI,

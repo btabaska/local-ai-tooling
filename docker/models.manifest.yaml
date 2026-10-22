@@ -286,6 +286,40 @@ served:
       file: mmproj-Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-BF16.gguf
       confidence: verified   # sha256 == HF LFS oid (2026-09-01)
 
+
+# ── Strata lane (NOT llama-server; NOT in /opt/llm/models) ───────────────────
+# Qwen3.8-Flash-Next 125B-A6B on the Strata engine (strata container, 2026-10-22).
+# Files live in the strata data subvolume and are fetched/prepared by the
+# container itself (`docker compose up -d strata` re-downloads + re-packs).
+# fetch-models.sh does NOT handle these (different dir + Strata's pack step).
+strata:
+  data_dir: /opt/llm/strata/Strata-data   # own btrfs subvolume (outside snapper root snapshots)
+  llama_swap_model: strata                # load/unload shim entry
+  litellm_alias: [strata]
+  engine_image: ghcr.io/niko1221/strata:0.2.2-cuda13 (digest-pinned in docker-compose.yml)
+  run_config: docker/strata/strata-iq3_s.json
+  files:
+    - file: models/IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf
+      size_bytes: 54817524224       # ~51.05 GiB (weights + experts)
+      sha256: 4c1eb2ceb4915e1192f4f386021897bde56a97f40a0bb78bb86465e0f7d2aca3
+    - file: models/IQ3_S/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+      size_bytes: 28800138432       # ~26.82 GiB (n-gram lookup table, mmapped)
+      sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+  derived: packs/iq3_s + mtp/rt (draft layer, ~5 GB) are built/fetched by Strata
+  source:
+    repo: ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+    path: IQ3_S/
+    base_model: Qwen/Qwen3.8-Flash-Next
+    quantized_by: ISTA-DASLab
+    confidence: verified   # both sha256 == HF LFS oid (tree API, 2026-10-22)
+  integrity_note: >
+    2026-10-22 the first download of shard 2 landed with ONE 4 KiB block
+    failing its btrfs checksum (fresh-write corruption, fix-83 class); it was
+    re-downloaded, verified against the HF oid read back from disk with caches
+    dropped. Re-hash after any rig RAM/NVMe incident:
+    sudo sha256sum /opt/llm/strata/Strata-data/models/IQ3_S/*.gguf
+
+
 ollama_shim:
   store: ~/.ollama (Ollama-managed blobs; not in /opt/llm/models, not in restic)
   models:

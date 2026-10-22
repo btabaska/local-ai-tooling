@@ -312,6 +312,35 @@ models:
       --dry-multiplier 0.8 --dry-base 1.75 --dry-allowed-length 2
     ttl: 120
 
+  # ---- Strata: Qwen3.8-Flash-Next 125B-A6B MoE on GPU+RAM (2026-10-22) ----
+  # NOT a llama-server: the strata container (docker-compose.yml) is a separate
+  # engine (github.com/Niko1221/Strata) that tiers 24,576 experts across VRAM /
+  # pinned RAM / NVMe. It idles LAZY (no VRAM). This entry is a shim that gives
+  # llama-swap ownership of the card: start = POST /load (blocks until loaded,
+  # 1-3 min cold, seconds when the files are in page cache) then hold a pid;
+  # stop = POST /unload?wait (drains the running turn, frees VRAM + pinned RAM)
+  # then kill the holder. Membership in the exclusive "big" group means asking
+  # for strata evicts q38/chat and asking for q38/chat evicts strata; the
+  # Apollo gpu-yield unload-all and the ComfyUI gpu-arbiter unload it too.
+  # Auth: strata always requires its key (STRATA_API_KEY, vault
+  # ai_stack.strata_api_key); llama-swap forwards the client's Authorization
+  # header, so callers (LiteLLM alias `strata`, Hermes) send that key.
+  # One request at a time (Strata serves 1 turn; parallel 1 in its config).
+  "strata":
+    name: "Qwen3.8-Flash-Next 125B-A6B ISTA GSQ-RCO IQ3_S via Strata (GPU+RAM, 128K)"
+    proxy: http://strata:8080
+    checkEndpoint: /health
+    cmd: >-
+      sh -c 'curl -sS --fail-with-body -m 900 -X POST
+      -H "Authorization: Bearer $STRATA_API_KEY" -H "Content-Type: application/json"
+      -d "{}" http://strata:8080/load && exec sleep infinity'
+    cmdStop: >-
+      sh -c 'curl -sS -m 330 -X POST
+      -H "Authorization: Bearer $STRATA_API_KEY" -H "Content-Type: application/json"
+      -d "{}" "http://strata:8080/unload?wait=300"; kill ${PID}'
+    ttl: 1800
+
+
 groups:
   # One big model at a time; loading one evicts the previous (NVMe reload is
   # seconds). The persistent embed group survives swaps.
@@ -320,6 +349,7 @@ groups:
     exclusive: true
     members:
       - "qwen3.8-27b"   # sole coding/agentic lane (lai-30)
+      - "strata"   # Qwen3.8-Flash-Next via Strata (2026-10-22)
       - "gemma4-31b-heretic"   # chat, text-only
       - "gemma4-31b-heretic-vision"   # chat-vision; Plant Scout's lane
       - "gemma4-12b-hauhau"   # chat-fast, +MTP drafter

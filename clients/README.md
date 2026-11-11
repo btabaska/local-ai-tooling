@@ -11,6 +11,7 @@ Client configs that point local coding agents at the rig's **LiteLLM** gateway
 | `../agentic/opencode/notification-ntfy.json` | `~/.config/opencode/notification-ntfy.json` | opencode (ntfy plugin) |
 | `pi-models.json` | `~/.pi/agent/models.json` | pi.dev |
 | `pi-auth.example.json` | `~/.pi/agent/auth.json` (chmod 0600) | pi.dev |
+| `pithagoras/` | see *Pithagoras* below | Pithagoras web portal (pi 1.1) |
 
 ## opencode pin + plugins (lai-05)
 
@@ -80,3 +81,34 @@ runs on the GPU**. Launch Orca with `--disable-gpu` (a user `.desktop` override 
 `~/.local/share/applications/stably-orca.desktop` sets `Exec=stably-orca --disable-gpu %U`);
 the `stably-orca` wrapper forwards it to Electron. UI renders on CPU (fine for an IDE)
 and the full model budget is restored.
+
+## Pithagoras portal + REA decompilation (Mac, 2026-11-11)
+
+[Pithagoras](https://github.com/thecodacus/pithagoras) (hosted web UI for pi) runs **natively** on the
+Mac at `http://<mac>:4100` — not in Docker, because REA's Ghidra provider needs the macOS host
+(and Docker Desktop host networking is unreliable). Checkout `~/GitHub/pithagoras` (build:
+`PATH=/opt/homebrew/opt/node@24/bin:$PATH npm install && npm run build`; npm 11 script approvals
+live in an untracked `.npmrc` so the in-app **Update** button's `git pull` stays clean).
+
+- **Isolated pi.** The portal uses its bundled pi **1.1.x** (`node_modules/.bin/pi`) with
+  `PI_CODING_AGENT_DIR=~/.local/share/pithagoras/pi-agent` — the global `~/.pi/agent` (pi 0.82)
+  is untouched. That dir holds `models.json` (= `pi-models.json`), `auth.json` (0600, the
+  coding-agents key — pi interpolates nothing), `settings.json` (= `pithagoras/pi-settings.json`,
+  default `litellm/strata`) and `mcp.json` (= `pithagoras/pi-mcp.json`).
+- **Node.** Pinned to keg-only Homebrew `node@24` — the PATH `node` is Hermes's bundled 26.8.1,
+  which REA rejects (<26.12.1) and which Hermes updates can move under better-sqlite3.
+- **Service.** `pithagoras/run.sh` → `~/.local/share/pithagoras/run.sh`; plist →
+  `~/Library/LaunchAgents/us.tabaska.pithagoras.plist` (KeepAlive on non-zero exit, so the
+  Update button's exit-75 restarts it). `PORTAL_SECRET` in `~/.local/share/pithagoras/secret.env`
+  (0600). Log: `~/.local/share/pithagoras/portal.log`. Workspace root: `~/RE` (deliberately NOT
+  `~/GitHub` — pi runs with no approval prompts and has write/bash tools).
+- **REA** (`rea-agents` 6.8.0, `npm i -g`, at `~/.local/bin/rea`): registered with
+  `PI_CODING_AGENT_DIR=… rea setup --client pi --yes` (skill → `~/.agents/skills/reverse-engineer-anything`).
+  Provider = **Ghidra 12.1.4** at `~/.local/opt/ghidra_12.1.4_PUBLIC` (sha256-verified release zip)
+  + Homebrew `openjdk@21`. The release zip ships **no mac_arm_64 decompiler** — built locally with
+  `support/gradle/gradlew --no-daemon buildNatives` (JAVA_HOME=openjdk@21). Check:
+  `rea doctor --client pi --json` (healthy) and `pi mcp list` (rea: connected, 229 tools, codemode).
+- **Verified 2026-11-11:** pi → LiteLLM `strata` → REA/Ghidra recovered the key check of a stripped
+  arm64 sample (`~/RE/samples/crackme`) with correct pseudocode in ~1m45s.
+- ⚠ pi will also **execute** targets to corroborate static findings — don't point it at untrusted
+  binaries on the host; use a VM or `EXECUTOR=container`.

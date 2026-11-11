@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "rea": {
+      "type": "stdio",
+      "command": "/Users/brandontabaska/.local/bin/rea",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "GHIDRA_INSTALL_DIR": "/Users/brandontabaska/.local/opt/ghidra_12.1.4_PUBLIC",
+        "JAVA_HOME": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+      }
+    }
+  }
+}

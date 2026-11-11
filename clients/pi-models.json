@@ -1,5 +1,5 @@
 {
-  "_comment": "pi.dev (@earendil-works/pi-coding-agent) custom-provider catalog for the rig's LiteLLM stack. Deploy to ~/.pi/agent/models.json. Validated on pi 0.82.x (ai-09). models.json is credential-blind: the key lives in ~/.pi/agent/auth.json (see pi-auth.example.json). compat.supportsDeveloperRole/supportsReasoningEffort=false is REQUIRED for llama.cpp-style OpenAI servers (pi docs/models.md) or reasoning-model requests error. UPDATED 2026-09-02 (lai-30): the roster collapsed to a single Qwen coding lane - coder/coder-strong/coder-swarm/fast were DELETED, so only q38 + utility remain. That pair is also exactly what the coding-agents virtual key is scoped to, so declaring anything else here would 403.",
+  "_comment": "pi.dev (@earendil-works/pi-coding-agent) custom-provider catalog for the rig's LiteLLM stack. Deploy to ~/.pi/agent/models.json. Validated on pi 0.82.x (ai-09). models.json is credential-blind: the key lives in ~/.pi/agent/auth.json (see pi-auth.example.json). compat.supportsDeveloperRole/supportsReasoningEffort=false is REQUIRED for llama.cpp-style OpenAI servers (pi docs/models.md) or reasoning-model requests error. UPDATED 2026-09-02 (lai-30): the roster collapsed to a single Qwen coding lane - coder/coder-strong/coder-swarm/fast were DELETED, so only q38 + utility remain. UPDATED 2026-11-11: + strata (lai-31; coding-agents key is scoped q38/utility/strata - declaring anything else here would 403). Also deployed as the Pithagoras portal's isolated agent dir (~/.local/share/pithagoras/pi-agent/models.json, default model strata).",
   "providers": {
     "litellm": {
       "baseUrl": "https://llm.tabaska.us/v1",
@@ -16,6 +16,13 @@
           "reasoning": true,
           "contextWindow": 245760,
           "maxTokens": 8192
+        },
+        {
+          "id": "strata",
+          "name": "strata - Qwen3.8-Flash-Next 125B-A6B IQ3_S (Strata, GPU+RAM, 128K)",
+          "reasoning": true,
+          "contextWindow": 131072,
+          "maxTokens": 16384
         },
         {
           "id": "utility",

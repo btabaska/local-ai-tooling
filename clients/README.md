@@ -108,6 +108,11 @@ live in an untracked `.npmrc` so the in-app **Update** button's `git pull` stays
   + Homebrew `openjdk@21`. The release zip ships **no mac_arm_64 decompiler** — built locally with
   `support/gradle/gradlew --no-daemon buildNatives` (JAVA_HOME=openjdk@21). Check:
   `rea doctor --client pi --json` (healthy) and `pi mcp list` (rea: connected, 229 tools, codemode).
+- **The portal needs `pi-mcp-adapter`** — its chats ignore pi 1.1's built-in MCP loader, so without the
+  adapter `mcp.json` entries are NOT tools in the portal (the CLI test passed while portal chats had no REA).
+  Installed at the portal's own pin: `PI_CODING_AGENT_DIR=… pi install npm:pi-mcp-adapter@2.18.0`
+  (= `ADAPTER_SPEC` in `core/server/src/api/mcp.ts`; Settings → MCP does the same), then restart the
+  portal. REA tools then appear via the `mcp` gateway tool as `rea_<tool>` (e.g. `rea_open_binary`).
 - **Verified 2026-11-11:** pi → LiteLLM `strata` → REA/Ghidra recovered the key check of a stripped
   arm64 sample (`~/RE/samples/crackme`) with correct pseudocode in ~1m45s.
 - ⚠ pi will also **execute** targets to corroborate static findings — don't point it at untrusted

@@ -7,5 +7,13 @@
     "../../../../GitHub/pithagoras/extensions/files",
     "../../../../GitHub/pithagoras/extensions/themes",
     "npm:pi-mcp-adapter@2.18.0"
-  ]
+  ],
+  "compaction": {
+    "modelOverrides": {
+      "litellm/strata": {
+        "reserveTokens": 32768,
+        "keepRecentTokens": 24576
+      }
+    }
+  }
 }

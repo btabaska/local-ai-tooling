@@ -10,6 +10,24 @@
         "GHIDRA_INSTALL_DIR": "/Users/brandontabaska/.local/opt/ghidra_12.1.4_PUBLIC",
         "JAVA_HOME": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
       }
+    },
+    "ghidra": {
+      "type": "stdio",
+      "command": "/Users/brandontabaska/.local/bin/pyghidra-mcp",
+      "args": [
+        "--transport",
+        "stdio",
+        "--project-path",
+        "/Users/brandontabaska/RE/ghidra-projects",
+        "--project-name",
+        "re",
+        "--no-symbols"
+      ],
+      "env": {
+        "GHIDRA_INSTALL_DIR": "/Users/brandontabaska/.local/opt/ghidra_12.1.4_PUBLIC",
+        "JAVA_HOME": "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+      },
+      "description": "Persistent headless Ghidra project (~/RE/ghidra-projects/re) via pyghidra-mcp. Use for targets REA rejects (e.g. Game Boy ROMs via GhidraBoy/SM83). Renames/comments persist across chats; call save after edits."
     }
   }
 }

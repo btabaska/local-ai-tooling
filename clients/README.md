@@ -115,5 +115,22 @@ live in an untracked `.npmrc` so the in-app **Update** button's `git pull` stays
   portal. REA tools then appear via the `mcp` gateway tool as `rea_<tool>` (e.g. `rea_open_binary`).
 - **Verified 2026-11-11:** pi → LiteLLM `strata` → REA/Ghidra recovered the key check of a stripped
   arm64 sample (`~/RE/samples/crackme`) with correct pseudocode in ~1m45s.
+- **Game Boy / formats REA rejects → `pyghidra-mcp`** (2026-11-12). REA refuses `.gb` ROMs at its own
+  format gate (`unsupported binary format`) and its raw-binary lane has no SM83/Z80, so Ghidra is also
+  exposed directly: `uv tool install pyghidra-mcp==0.3.0`, registered as MCP server `ghidra` in
+  `pithagoras/pi-mcp.json` (stdio, `--no-symbols`, persistent project `~/RE/ghidra-projects/re`).
+  SM83 support = **GhidraBoy** built from upstream PR #18 (Ghidra-12 compat, commit `76b3e26`; release
+  20250830 does not compile on 12.x) with `GHIDRA_INSTALL_DIR=… JAVA_HOME=openjdk@21 ./gradlew assemble`,
+  zip unpacked into `$GHIDRA_INSTALL_DIR/Ghidra/Extensions/` (its `gradlew test` harness exits 255 on
+  macOS before running a test — validated instead by a real SM83 import + decompile). Rebuild it after
+  any Ghidra upgrade. Bank-switched far-calls are not followed by auto-analysis (Pokémon Yellow: 33
+  functions found) — most code is found by hand.
+- **The Ghidra project is the checkpoint.** Renames/comments/types made through `ghidra` persist in
+  `re.rep` across chats and compactions (REA's database is ephemeral). One pyghidra-mcp process per
+  project — two chats using `ghidra` at once will fight over the project lock.
+- **Compaction on strata** (`pithagoras/pi-settings.json`): `compaction.modelOverrides["litellm/strata"]`
+  = `reserveTokens 32768`, `keepRecentTokens 24576` → compacts at ~98K of 131K instead of the default
+  ~115K, so one 10–25K Ghidra tool result can't overflow the window mid-turn. `reserveTokens` also caps
+  the summary length (≤ the model's 16384 maxTokens).
 - ⚠ pi will also **execute** targets to corroborate static findings — don't point it at untrusted
   binaries on the host; use a VM or `EXECUTOR=container`.

@@ -5,6 +5,7 @@
   "packages": [
     "../../../../GitHub/pithagoras/extensions/terminal",
     "../../../../GitHub/pithagoras/extensions/files",
-    "../../../../GitHub/pithagoras/extensions/themes"
+    "../../../../GitHub/pithagoras/extensions/themes",
+    "npm:pi-mcp-adapter@2.18.0"
   ]
 }
